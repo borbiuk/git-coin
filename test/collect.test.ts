@@ -589,6 +589,42 @@ test('test phase stores a large step, production rejects it without a cross-chec
 	assert.equal(requestLogColumns(production).length, 2);
 });
 
+test('production: the step check ignores a previous row that is older than 6 hours', async () => {
+	const h = await makeHarness(productionOneSource());
+	await runAt(h, T0);
+	h.market.prices.kraken.BTC = '200.00';
+	// After a long gap a big move is a real move, not a bad tick
+	const result = await runAt(h, plusMinutes(T0, 7 * 60));
+	assert.equal(result.rowsWritten, 2);
+	assert.equal(remoteStatus(h).coins.BTC?.rejected_count ?? 0, 0);
+});
+
+test('the no data Issue works in the test phase without the alert flag, and a healthy run makes no call', async () => {
+	const h = await makeHarness();
+	for (const id of Object.keys(h.market.prices) as SourceId[]) {
+		h.market.down.add(id);
+	}
+	for (const minutes of [0, 15, 30]) {
+		await runAt(h, plusMinutes(T0, minutes), {
+			issueClient: h.issues.client,
+		});
+	}
+	assert.deepEqual(h.issues.calls, []);
+	await runAt(h, plusMinutes(T0, 45), { issueClient: h.issues.client });
+	assert.equal(h.issues.created.length, 1);
+	assert.equal(h.issues.created[0]?.title, '[collector] no data');
+	// The alert step itself never runs in the test phase
+	assert.ok(!h.logs.some((line) => line.startsWith('alerts:')));
+	assert.throws(() => show(h, 'state/alerts.json'));
+
+	h.market.down.clear();
+	await runAt(h, plusMinutes(T0, 60), { issueClient: h.issues.client });
+	assert.deepEqual(h.issues.closed, [1]);
+	const callsAfterClose = h.issues.calls.length;
+	await runAt(h, plusMinutes(T0, 75), { issueClient: h.issues.client });
+	assert.equal(h.issues.calls.length, callsAfterClose);
+});
+
 test('alerts are gated off in the test phase even when the feature flag is on', async () => {
 	const h = await makeHarness((config) => {
 		config.settings.features.alerts = true;
@@ -644,8 +680,8 @@ test('a broken alert state never blocks the price commit', async () => {
 	});
 	assert.ok(remoteLines(h, `${CSV_DIR}/BTC.csv`).length === 2);
 	assert.ok(h.logs.some((line) => line.startsWith('alerts: failed')));
-	// The no data Issue sync still runs on its own
-	assert.deepEqual(h.issues.calls, ['list:collector']);
+	// A healthy run makes no Issue API call at all
+	assert.deepEqual(h.issues.calls, []);
 });
 
 test('a failing Issue client is not fatal, and a missing client skips the alert step', async () => {
@@ -655,11 +691,19 @@ test('a failing Issue client is not fatal, and a missing client skips the alert 
 		})
 	);
 	failing.issues.failing = true;
-	const result = await runAt(failing, T0, {
+	failing.market.down.add('kraken');
+	// Three failed runs need no Issue call yet
+	for (const minutes of [0, 15, 30]) {
+		await runAt(failing, plusMinutes(T0, minutes), {
+			issueClient: failing.issues.client,
+		});
+	}
+	assert.deepEqual(failing.issues.calls, []);
+	const result = await runAt(failing, plusMinutes(T0, 45), {
 		issueClient: failing.issues.client,
 	});
 	assert.equal(result.exitCode, 0);
-	assert.equal(result.rowsWritten, 2);
+	assert.equal(remoteStatus(failing).consecutive_failures, 4);
 	assert.ok(
 		failing.logs.some((line) => line.startsWith('no data Issue: failed'))
 	);
@@ -737,6 +781,8 @@ test('after a push conflict the spacing guard skips a row another run already st
 
 	assert.equal(result.exitCode, 0);
 	assert.equal(result.rowsWritten, 7);
+	// The message counts the rows the last write() appended, not a count from before the conflict
+	assert.equal(subjects(h)[0], 'data: 2026-10-29T14:03Z 7 rows');
 	const lines = remoteLines(h, `${CSV_DIR}/BTC.csv`);
 	assert.equal(lines.filter((line) => line.includes(',cb,')).length, 1);
 	assert.ok(lines.includes(`${plusMinutes(T0, -1)},100.05,cb,1`));
@@ -756,8 +802,12 @@ test('a re-run inside min_spacing adds no price rows', async () => {
 	assert.equal(remoteLines(h, `${CSV_DIR}/BTC.csv`).length, 5);
 	assert.equal(remoteLines(h, `${CSV_DIR}/ETH.csv`).length, 5);
 	assert.equal(remoteLines(h, 'data/meta/2026/10/29/requests.csv').length, 9);
-	// A run in which every row is skipped counts as a failed run (A7 rule)
-	assert.equal(remoteStatus(h).consecutive_failures, 1);
+	// A run that only skipped rows is idle: no failure and no new point
+	const idle = remoteStatus(h);
+	assert.equal(idle.consecutive_failures, 0);
+	assert.equal(idle.last_run_at, plusMinutes(T0, 1));
+	assert.equal(idle.last_point_at, T0);
+	assert.equal(subjects(h)[0], 'data: 2026-10-29T14:04Z 0 rows');
 	assert.ok(h.logs.some((line) => line.includes('spacing')));
 	// 5 minutes later the rows are accepted again
 	const later = await runAt(h, plusMinutes(T0, 6));

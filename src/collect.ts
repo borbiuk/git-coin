@@ -87,6 +87,7 @@ interface Checked {
 interface Applied {
 	written: PriceRow[];
 	skipped: number;
+	previousStatus: Status;
 	status: Status;
 	shouldPublish: boolean;
 }
@@ -158,7 +159,8 @@ function shapeProblem(row: PriceRow): string | null {
  */
 async function checkRuns(
 	deps: CollectDeps,
-	runs: SourceRun[]
+	runs: SourceRun[],
+	now: Date
 ): Promise<Checked[]> {
 	const settings = deps.config.settings;
 	const spacingMs = settings.min_spacing_seconds * 1000;
@@ -178,6 +180,10 @@ async function checkRuns(
 			const verdict = validateRow(row, {
 				phase: settings.phase,
 				previous: last === null ? null : Number(last.price),
+				previousAgeSeconds:
+					last === null
+						? null
+						: (now.getTime() - parseIso(last.ts)) / 1000,
 				maxStepPercent: settings.max_step_move_percent,
 				crosscheckMaxDiffPercent: settings.crosscheck_max_diff_percent,
 			});
@@ -262,6 +268,9 @@ async function applyToCheckout(
 				written: written.filter((row) => row.src === item.run.src),
 				rejected: item.rejected,
 				missingCoins: item.missing,
+				skipped: skipped.filter(
+					(entry) => entry.row.src === item.run.src
+				).length,
 			};
 		}),
 	};
@@ -276,7 +285,13 @@ async function applyToCheckout(
 	for (const item of skipped) {
 		deps.log(`skipped ${item.row.coin} ${item.row.src}: ${item.reason}`);
 	}
-	return { written, skipped: skipped.length, status, shouldPublish };
+	return {
+		written,
+		skipped: skipped.length,
+		previousStatus: prev,
+		status,
+		shouldPublish,
+	};
 }
 
 /**
@@ -284,11 +299,7 @@ async function applyToCheckout(
  * rejected push cannot run the Issue calls twice. The alert state is committed on its own, and
  * only when it changed. Nothing here may fail the run (ADR 0006).
  */
-async function alertStep(
-	deps: CollectDeps,
-	status: Status,
-	now: Date
-): Promise<void> {
+async function alertStep(deps: CollectDeps, now: Date): Promise<void> {
 	const client = deps.issueClient;
 	if (client === null) {
 		deps.log('alerts: skipped, there is no Issue client');
@@ -331,8 +342,27 @@ async function alertStep(
 	} catch (error) {
 		deps.log(`alerts: failed: ${describeError(error)}`);
 	}
+}
+
+/**
+ * Keeps the `[collector] no data` Issue in step with the status, in both phases. A healthy run
+ * (before and after) makes no API call. A failure here never fails the run.
+ */
+async function noDataStep(
+	deps: CollectDeps,
+	previous: Status,
+	status: Status
+): Promise<void> {
+	const client = deps.issueClient;
+	if (
+		client === null ||
+		deps.dryRun ||
+		(!needsNoDataIssue(previous) && !needsNoDataIssue(status))
+	) {
+		return;
+	}
 	try {
-		await syncNoDataIssue(client, needsNoDataIssue(status), false);
+		await syncNoDataIssue(client, needsNoDataIssue(status), deps.dryRun);
 	} catch (error) {
 		deps.log(`no data Issue: failed: ${describeError(error)}`);
 	}
@@ -352,7 +382,7 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 		adapters.map((adapter) => callAdapter(deps, adapter))
 	);
 	const now = deps.now();
-	const checked = await checkRuns(deps, runs);
+	const checked = await checkRuns(deps, runs, now);
 	logSources(deps, checked);
 
 	const appendable = checked.reduce((sum, item) => sum + item.appendable, 0);
@@ -366,7 +396,11 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 	const box: { applied?: Applied } = {};
 	const result = await commitAndPush(
 		deps.git,
-		`data: ${minuteOf(now)} ${appendable} ${appendable === 1 ? 'row' : 'rows'}`,
+		// Built after each try's write(), from the rows that try really appended
+		() => {
+			const count = box.applied?.written.length ?? 0;
+			return `data: ${minuteOf(now)} ${count} ${count === 1 ? 'row' : 'rows'}`;
+		},
 		async () => {
 			box.applied = await applyToCheckout(deps, checked, now);
 		}
@@ -383,8 +417,9 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 	);
 
 	if (settings.phase === 'production' && settings.features.alerts) {
-		await alertStep(deps, applied.status, now);
+		await alertStep(deps, now);
 	}
+	await noDataStep(deps, applied.previousStatus, applied.status);
 	return {
 		exitCode: 0,
 		shouldPublish: applied.shouldPublish,
@@ -484,10 +519,11 @@ export async function runCli(
 		}
 		const config = await loadConfig(values.config);
 		const dryRun = values['dry-run'];
-		const alertsWanted =
-			config.settings.phase === 'production' &&
-			config.settings.features.alerts &&
-			!dryRun;
+		// Both phases may need the client (the `no data` Issue). Without a token there is none.
+		const clientWanted =
+			!dryRun &&
+			env.GITHUB_TOKEN !== undefined &&
+			env.GITHUB_TOKEN !== '';
 		const dataRoot = path.resolve(values['data-root']);
 		deps = {
 			config,
@@ -499,7 +535,7 @@ export async function runCli(
 			issueClient:
 				overrides.issueClient !== undefined
 					? overrides.issueClient
-					: alertsWanted
+					: clientWanted
 						? createGitHubIssueClient(env)
 						: null,
 			dryRun,
