@@ -6,6 +6,7 @@ import type {
 	SeriesDaily,
 	SeriesPoints,
 	SeriesReader,
+	SeriesSources,
 	SrcCode,
 } from '../types.ts';
 
@@ -75,6 +76,22 @@ export function recentPoints(
 		}
 	}
 	return out;
+}
+
+/** The samples of every source from `fromSec` on, at full resolution. A source with no sample there is left out. */
+export function sourcePoints(
+	coin: string,
+	bySource: Array<{ src: SrcCode; samples: Sample[] }>,
+	fromSec: number
+): SeriesSources {
+	const sources: SeriesSources['sources'] = [];
+	for (const { src, samples } of bySource) {
+		const { t, p } = recentPoints(coin, src, samples, fromSec);
+		if (t.length > 0) {
+			sources.push({ src, t, p });
+		}
+	}
+	return { coin, sources };
 }
 
 /** The last sample of every UTC hour, from `fromSec` on (the 90 day file). A missing hour stays missing. */

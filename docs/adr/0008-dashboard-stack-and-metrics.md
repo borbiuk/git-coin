@@ -72,7 +72,7 @@ Sizes were measured on the minified single-file builds from jsDelivr with `gzip 
 
 ### D1. No build step for the front end
 
-- Static files: `site/index.html`, `site/app.js`, `site/style.css`, and `site/vendor/` with the minified uPlot file, its CSS and its licence. Record the vendored version in a comment at the top of `app.js`. Dependabot cannot update vendored files. Update by hand when needed (checklist item).
+- Static files: `site/index.html`, `site/app.js`, `site/lib.js`, `site/style.css`, the logo `site/logo.svg`, the favicon `site/favicon.svg`, and `site/vendor/` with the minified uPlot file, its CSS and its licence. Record the vendored version in a comment at the top of `app.js`. Dependabot cannot update vendored files. Update by hand when needed (checklist item).
 - The data build is only a Node step (the same TypeScript code base as the collector) in the `publish` job (ADR 0005). It reads `data/raw` and writes derived JSON into the Pages artifact. No JavaScript bundler.
 
 ### D2. Derived data in the Pages artifact
@@ -82,11 +82,13 @@ data/status.json            last point time, last run, failures, last publish, p
 data/latest.json            latest price, 24h / 7d / 30d change, high and low per period, per coin
 data/alerts.json            last 10 alerts (coin, time, direction, severity, Issue number); severity is `high` (the Issue label `warning`) or `extreme` (`critical`)
 data/coins/<ID>.7d.json     last 7 days at full resolution
+data/coins/<ID>.sources.json  last 7 days at full resolution for each stored source (only while more than one source is stored)
 data/coins/<ID>.90d.json    last 90 days, hourly last-price points
 data/coins/<ID>.daily.json  all history, daily open/high/low/close
 ```
 
 - Series are columnar JSON arrays (`t` as epoch seconds, `p` as numbers) for the smallest payload. Prices on the page are display numbers. The exact source strings stay in the CSV files.
+- The page draws the source comparison from `<ID>.sources.json` and hides it when that file is missing or holds fewer than two sources. Coin Metrics data carries its credit next to that chart.
 - Gaps are kept as gaps (no interpolation). The chart breaks the line when a gap is longer than 3 times the median spacing.
 - Size estimate (UNVERIFIED, my arithmetic): one coin has about 672 + 2,160 + 1,825 points after 5 years, about 60 KB raw and about 25 KB gzip. A visitor loads only the coin and range they open.
 - The page uses same-origin Pages JSON. It never loads from `raw.githubusercontent.com`.

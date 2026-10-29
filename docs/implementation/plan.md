@@ -248,6 +248,10 @@ export interface SeriesPoints {
 	t: number[];
 	p: number[];
 } // 7d and 90d
+export interface SeriesSources {
+	coin: string;
+	sources: Array<{ src: SrcCode; t: number[]; p: number[] }>;
+} // last 7 days of each stored source; written only while more than one source is stored
 export interface SeriesDaily {
 	coin: string;
 	src: SrcCode;
@@ -417,7 +421,7 @@ Every agent prompt is built from: the rules in 5.1, the agent section below, and
 ### A11. site builder
 
 - Read: ADR 0008 D1 to D4, ADR 0004 D5, ADR 0005 D3 (publish job).
-- Build `src/build-site.ts` and `src/site/**`: from the data checkout, write `status.json`, `latest.json`, `alerts.json`, `coins/<ID>.7d.json`, `coins/<ID>.90d.json`, `coins/<ID>.daily.json` in the shapes of section 3.2. Use only rows of the primary source. 7 days at full resolution, 90 days as hourly last-price points, daily OHLC on UTC days. Gaps stay gaps. Handle an empty data root (first run), a coin with no rows, and coins with `enabled: false`. Prices go to numbers only in the output. CLI as in 3.4.
+- Build `src/build-site.ts` and `src/site/**`: from the data checkout, write `status.json`, `latest.json`, `alerts.json`, `coins/<ID>.7d.json`, `coins/<ID>.90d.json`, `coins/<ID>.daily.json` in the shapes of section 3.2, and `coins/<ID>.sources.json` while `stored_sources` has more than one entry. Use only rows of the primary source. 7 days at full resolution, 90 days as hourly last-price points, daily OHLC on UTC days. Gaps stay gaps. Handle an empty data root (first run), a coin with no rows, and coins with `enabled: false`. Prices go to numbers only in the output. CLI as in 3.4.
 - Tests with synthetic CSV trees: downsampling, daily OHLC, period stats, gaps, empty data, a disabled coin, deterministic output for a fixed `now`.
 
 ### A12. dashboard

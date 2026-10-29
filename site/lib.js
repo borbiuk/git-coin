@@ -275,6 +275,142 @@ export function breakGaps(t, p, factor = 3) {
 	return { t: outT, p: outP };
 }
 
+// How each stored source looks in the comparison chart: a colour slot (--series-N), a line dash and a
+// marker, so the colour is never the only cue (style guide).
+export const COMPARE_STYLES = {
+	kr: { slot: 1, dash: [], marker: 'circle' },
+	cb: { slot: 2, dash: [9, 6], marker: 'square' },
+	bs: { slot: 3, dash: [2, 6], marker: 'triangle' },
+	cm: { slot: 4, dash: [10, 4, 2, 4], marker: 'diamond' },
+};
+
+/** True when `obj` is a sources file: a list of known sources, each a valid `t` and `p` series. */
+export function validSources(obj) {
+	if (
+		obj === null ||
+		typeof obj !== 'object' ||
+		!Array.isArray(obj.sources)
+	) {
+		return false;
+	}
+	return obj.sources.every(
+		(entry) =>
+			entry !== null &&
+			typeof entry === 'object' &&
+			Object.hasOwn(COMPARE_STYLES, entry.src) &&
+			validSeries(entry, ['t', 'p'])
+	);
+}
+
+/**
+ * Puts the sources on one time axis. Points of different sources that lie within `windowSeconds`
+ * share a time (the first of them), because the sources are read a few seconds apart in one run.
+ * A source with no point at a time has `undefined` there, so its line breaks. A gap longer than
+ * `factor` times the median spacing gets a row of nulls, as in breakGaps. Nothing is interpolated.
+ */
+export function mergeSources(sources, windowSeconds = 60, factor = 3) {
+	const all = [...new Set(sources.flatMap((s) => s.t))].sort((a, b) => a - b);
+	const slotOf = new Map();
+	const times = [];
+	for (const t of all) {
+		if (times.length === 0 || t - times[times.length - 1] > windowSeconds) {
+			times.push(t);
+		}
+		slotOf.set(t, times.length - 1);
+	}
+	const columns = sources.map((s) => {
+		const column = new Array(times.length).fill(undefined);
+		s.t.forEach((t, i) => {
+			column[slotOf.get(t)] = s.p[i];
+		});
+		return column;
+	});
+
+	const limit = medianSpacing(times) * factor;
+	const outT = [];
+	const outColumns = columns.map(() => []);
+	for (let i = 0; i < times.length; i++) {
+		if (i > 0 && limit > 0 && times[i] - times[i - 1] > limit) {
+			outT.push(times[i - 1] + limit / factor);
+			outColumns.forEach((column) => column.push(null));
+		}
+		outT.push(times[i]);
+		outColumns.forEach((column, k) => column.push(columns[k][i]));
+	}
+	return { t: outT, columns: outColumns };
+}
+
+/** One sentence for the `aria-label` of the comparison chart: the last price of each source. */
+export function summarizeSources(coin, sources) {
+	const parts = sources.map(
+		(s) => `${sourceInfo(s.src).name} ${formatPrice(s.p[s.p.length - 1])}`
+	);
+	return `Source comparison for ${coin}, last 7 days, last prices: ${parts.join(', ')}.`;
+}
+
+// The price that counts as 0% in the coin comparison. The choice is the reader's.
+export const BASES = {
+	start: { label: 'Start of period' },
+	latest: { label: 'Latest price' },
+	low: { label: 'Period low' },
+	high: { label: 'Period high' },
+};
+
+export const MAX_COMPARE_LINES = 50;
+
+/**
+ * The change of every price in percent against one price of the same series: the first one, the last
+ * one, the lowest or the highest. `baseIndex` is the point that was used, so the chart can mark it.
+ */
+export function rebase(p, base) {
+	if (p.length === 0) {
+		return { pct: [], baseIndex: -1 };
+	}
+	let baseIndex = 0;
+	if (base === 'latest') {
+		baseIndex = p.length - 1;
+	} else if (base === 'low') {
+		baseIndex = p.indexOf(Math.min(...p));
+	} else if (base === 'high') {
+		baseIndex = p.indexOf(Math.max(...p));
+	}
+	const basePrice = p[baseIndex];
+	if (!(basePrice > 0)) {
+		return { pct: p.map(() => null), baseIndex };
+	}
+	return { pct: p.map((v) => (v / basePrice - 1) * 100), baseIndex };
+}
+
+/** A tick of the percent axis: "+2.5%", "−10%", "0%". */
+export function formatPercentAxis(value) {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return '';
+	}
+	if (value === 0) {
+		return '0%';
+	}
+	const digits = Math.abs(value) >= 10 || Number.isInteger(value) ? 0 : 1;
+	const body = `${Math.abs(value).toFixed(digits)}%`;
+	return value > 0 ? `+${body}` : `−${body}`;
+}
+
+/** One sentence for the `aria-label` of the coin comparison: how many coins, the base, the best and the worst. */
+export function summarizeChanges(rangeKey, baseKey, items) {
+	const title = RANGES[rangeKey]?.title ?? rangeKey;
+	const base = (BASES[baseKey]?.label ?? baseKey).toLowerCase();
+	if (items.length === 0) {
+		return `Percent change chart, ${title}: no coins selected.`;
+	}
+	const sorted = [...items].sort((a, b) => b.pct - a.pct);
+	const best = sorted[0];
+	const worst = sorted[sorted.length - 1];
+	return (
+		`Percent change of ${plural(items.length, 'coin')} against ${base}, ${title}. ` +
+		`At the latest point the highest is ${best.id} ${formatChange(best.pct).text} ` +
+		`and the lowest is ${worst.id} ${formatChange(worst.pct).text}.`
+	);
+}
+
 /** The part of a series that lies within `seconds` before its last point. */
 export function sliceRange(series, seconds) {
 	const { t, p } = series;

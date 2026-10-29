@@ -95,7 +95,8 @@ test('the site files in production mode have the contract shapes and use only th
 		'latest.json',
 		'status.json',
 	]);
-	assert.equal(readdirSync(join(out, 'coins')).length, 30);
+	// Four files per coin: 7d, 90d, daily and, because two sources are stored, sources
+	assert.equal(readdirSync(join(out, 'coins')).length, 40);
 
 	const latest = readJson(join(out, 'latest.json')) as {
 		generated_at: string;
@@ -359,6 +360,7 @@ test('the workflow commands build the page: copy the site, then run the builder 
 				`${id}.7d.json`,
 				`${id}.90d.json`,
 				`${id}.daily.json`,
+				`${id}.sources.json`,
 			])
 			.sort()
 	);

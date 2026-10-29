@@ -15,6 +15,7 @@ import {
 	loadSamples,
 	periodStats,
 	recentPoints,
+	sourcePoints,
 } from './site/derive.ts';
 import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
@@ -102,6 +103,31 @@ export async function buildSite(opts: {
 						nowSec - SEVEN_DAYS_SECONDS
 					)
 		);
+		// The source comparison exists only while more than one source is stored (ADR 0002)
+		if (config.settings.stored_sources.length > 1) {
+			const weekStart = nowSec - SEVEN_DAYS_SECONDS;
+			const bySource = [];
+			for (const id of config.settings.stored_sources) {
+				const code = SRC_CODE[id];
+				bySource.push({
+					src: code,
+					samples:
+						code === src
+							? samples
+							: await loadSamples(
+									reader,
+									coin.id,
+									isoSeconds(new Date(weekStart * 1000)),
+									now,
+									code
+								),
+				});
+			}
+			await writeJson(
+				`${base}.sources.json`,
+				sourcePoints(coin.id, bySource, weekStart)
+			);
+		}
 		await writeJson(
 			`${base}.90d.json`,
 			hourlyPoints(coin.id, src, samples, nowSec - NINETY_DAYS_SECONDS)

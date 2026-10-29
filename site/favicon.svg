@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+	<!-- Simplified for 16 px: eight bold dots instead of twelve thin ones -->
+	<circle cx="32" cy="32" r="26.5" fill="none" stroke="#6b7686" stroke-width="9" stroke-linecap="round" stroke-dasharray="0.1 21.2" />
+	<circle cx="32" cy="32" r="15" fill="#3478e6" />
+</svg>

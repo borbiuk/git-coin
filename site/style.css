@@ -10,6 +10,10 @@
 	--accent: #0a58ca;
 	--on-accent: #ffffff;
 	--line: #0a58ca;
+	--series-1: #0b4fb3;
+	--series-2: #c25e00;
+	--series-3: #0a7ea8;
+	--series-4: #a0338f;
 	--up: #12662b;
 	--down: #a8201a;
 	--focus: #0a58ca;
@@ -35,6 +39,10 @@
 		--accent: #8bbcff;
 		--on-accent: #0e1217;
 		--line: #6cb0ff;
+		--series-1: #6ea8ff;
+		--series-2: #f2a65a;
+		--series-3: #5fd4f0;
+		--series-4: #e08ad0;
 		--up: #62d17f;
 		--down: #ff958b;
 		--focus: #8bbcff;
@@ -76,6 +84,17 @@ h1 {
 	margin: 16px 0 0;
 	font-size: 1.5rem;
 	line-height: 1.2;
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.brand img {
+	width: 32px;
+	height: 32px;
 }
 
 h2 {
@@ -346,6 +365,60 @@ footer {
 
 .u-legend {
 	font-size: 0.8125rem;
+}
+
+/* Coin comparison */
+.multi-actions {
+	display: flex;
+	gap: 16px;
+	margin: 8px 0;
+}
+
+#multi-table {
+	max-width: 30rem;
+}
+
+#multi-table tbody tr:hover {
+	background: var(--surface);
+}
+
+.check {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.check input {
+	width: 20px;
+	height: 20px;
+	margin: 0;
+}
+
+#multi-readout {
+	min-height: 1.5em;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Crosshair: a solid line in the text colour */
+.u-hz .u-cursor-x {
+	border-right: 1px solid var(--text);
+}
+
+/* Chart states: a skeleton while loading, a dashed frame when there is nothing to draw */
+.chart.is-loading {
+	border-radius: 8px;
+	background:
+		linear-gradient(var(--grid), var(--grid)) 0 12% / 100% 6px no-repeat,
+		linear-gradient(var(--grid), var(--grid)) 0 50% / 100% 6px no-repeat,
+		linear-gradient(var(--grid), var(--grid)) 0 88% / 100% 6px no-repeat;
+}
+
+.chart.is-empty,
+.chart.is-error {
+	border: 1px dashed var(--muted);
+	border-radius: 8px;
 }
 
 @media (max-width: 480px) {

@@ -13,7 +13,7 @@
 			content="USD prices of ten coins, collected on a schedule by GitHub Actions and kept in git."
 		/>
 		<title>git-coin prices</title>
-		<link rel="icon" href="data:," />
+		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 		<link rel="stylesheet" href="vendor/uPlot.min.css" />
 		<link rel="stylesheet" href="style.css" />
 		<script src="vendor/uPlot.iife.min.js" defer></script>
@@ -22,7 +22,9 @@
 	<body>
 		<a class="skip" href="#main">Skip to the prices</a>
 		<header class="wrap">
-			<h1>git-coin</h1>
+			<h1 class="brand">
+				<img src="logo.svg" alt="" width="32" height="32" />git-coin
+			</h1>
 			<p class="tagline">
 				USD prices of ten coins, collected on a schedule and kept in
 				git.
@@ -96,7 +98,69 @@
 					aria-label="Chart range"
 				></div>
 				<div id="chart" class="chart" role="img"></div>
+				<p id="chart-caption" class="muted"></p>
 				<p id="chart-status" class="muted" role="status"></p>
+
+				<div id="compare" hidden>
+					<h3 id="compare-title" class="chart-title">
+						Source comparison, last 7 days
+					</h3>
+					<div id="compare-chart" class="chart" role="img"></div>
+					<p id="compare-note" class="muted"></p>
+				</div>
+			</section>
+
+			<section id="multi" aria-labelledby="multi-title" hidden>
+				<h2 id="multi-title">Compare coins</h2>
+				<p class="muted">
+					Change in percent, so coins of any price share one chart.
+					The 0% line is the base you choose.
+				</p>
+				<div
+					id="multi-ranges"
+					class="ranges"
+					role="group"
+					aria-label="Range of the comparison"
+				></div>
+				<p id="multi-base-label" class="muted">0% is the:</p>
+				<div
+					id="multi-base"
+					class="ranges"
+					role="group"
+					aria-labelledby="multi-base-label"
+				></div>
+				<div id="multi-chart" class="chart" role="img"></div>
+				<p id="multi-readout" class="muted" aria-hidden="true"></p>
+				<p id="multi-note" class="muted" role="status"></p>
+				<div class="multi-actions">
+					<button type="button" id="multi-all" class="link-button">
+						Show all
+					</button>
+					<button type="button" id="multi-none" class="link-button">
+						Hide all
+					</button>
+				</div>
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="Percent change of each coin and the choice of lines"
+				>
+					<table id="multi-table">
+						<caption class="sr">
+							Percent change of each coin against the chosen base
+						</caption>
+						<thead>
+							<tr>
+								<th scope="col">Show</th>
+								<th scope="col">Coin</th>
+								<th scope="col" class="num">At start</th>
+								<th scope="col" class="num">At latest</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
 			</section>
 
 			<section id="all" aria-labelledby="all-title" hidden>

@@ -202,6 +202,11 @@ export interface SeriesPoints {
 	t: number[];
 	p: number[];
 }
+/** The source comparison: the last 7 days of each stored source at full resolution. */
+export interface SeriesSources {
+	coin: string;
+	sources: Array<{ src: SrcCode; t: number[]; p: number[] }>;
+}
 export interface SeriesDaily {
 	coin: string;
 	src: SrcCode;

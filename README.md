@@ -1,3 +1,5 @@
+<img src="site/logo.svg" alt="git-coin logo" width="72" height="72" />
+
 # git-coin
 
 **USD prices of ten coins, collected on a schedule by GitHub Actions. The git history is the price history.**

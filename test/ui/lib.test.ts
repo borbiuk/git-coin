@@ -393,6 +393,121 @@ test('the sample 7 day and 90 day series each hold one gap that breakGaps marks'
 	}
 });
 
+test('the sample sources file is valid and merges onto one time axis with one gap row', () => {
+	const file = readJson('coins', 'BTC.sources.json');
+	assert.equal(lib.validSources(file), true);
+	const merged = lib.mergeSources(file.sources);
+	assert.equal(merged.columns.length, 4);
+	for (const column of merged.columns) {
+		assert.equal(column.length, merged.t.length);
+	}
+	// The sources are read seconds apart, so they share one time per run (626 runs and one gap row)
+	assert.equal(merged.t.length, 627);
+	const gapRows = merged.t.filter((_: number, i: number) =>
+		merged.columns.every((column: unknown[]) => column[i] === null)
+	);
+	assert.equal(gapRows.length, 1);
+});
+
+test('mergeSources keeps a missing point as undefined and never interpolates', () => {
+	const merged = lib.mergeSources([
+		{ src: 'kr', t: [0, 600, 1200], p: [1, 2, 3] },
+		{ src: 'cb', t: [1, 1201], p: [10, 30] },
+	]);
+	assert.deepEqual(merged.t, [0, 600, 1200]);
+	assert.deepEqual(merged.columns, [
+		[1, 2, 3],
+		[10, undefined, 30],
+	]);
+});
+
+test('mergeSources puts a row of nulls into a gap longer than three times the spacing', () => {
+	const merged = lib.mergeSources([
+		{ src: 'kr', t: [0, 300, 600, 900, 5000], p: [1, 2, 3, 4, 5] },
+	]);
+	assert.deepEqual(merged.t, [0, 300, 600, 900, 1200, 5000]);
+	assert.deepEqual(merged.columns, [[1, 2, 3, 4, null, 5]]);
+});
+
+test('validSources accepts known sources with valid series and nothing else', () => {
+	const good = { src: 'kr', t: [1, 2], p: [1, 2] };
+	assert.equal(lib.validSources({ sources: [good] }), true);
+	assert.equal(lib.validSources({ sources: [] }), true);
+	assert.equal(lib.validSources({ sources: [{ ...good, src: 'x' }] }), false);
+	assert.equal(lib.validSources({ sources: [{ ...good, p: [1] }] }), false);
+	assert.equal(
+		lib.validSources({ sources: [{ ...good, t: [2, 1] }] }),
+		false
+	);
+	assert.equal(lib.validSources({ sources: 'kr' }), false);
+	assert.equal(lib.validSources(null), false);
+});
+
+test('summarizeSources names every source with its last price', () => {
+	assert.equal(
+		lib.summarizeSources('BTC', [
+			{ src: 'kr', t: [1, 2], p: [99, 100] },
+			{ src: 'cb', t: [1, 2], p: [99, 101.5] },
+		]),
+		'Source comparison for BTC, last 7 days, last prices: Kraken $100.00, Coinbase $101.50.'
+	);
+});
+
+test('rebase gives the percent change against the chosen base and names the base point', () => {
+	const p = [100, 120, 80, 110];
+	const start = lib.rebase(p, 'start');
+	assert.equal(start.baseIndex, 0);
+	assert.deepEqual(
+		start.pct.map((v: number) => Math.round(v)),
+		[0, 20, -20, 10]
+	);
+	const latest = lib.rebase(p, 'latest');
+	assert.equal(latest.baseIndex, 3);
+	assert.equal(latest.pct[3], 0);
+	assert.ok(Math.abs(latest.pct[0] - (100 / 110 - 1) * 100) < 1e-9);
+	const low = lib.rebase(p, 'low');
+	assert.equal(low.baseIndex, 2);
+	assert.deepEqual(
+		low.pct.map((v: number) => Math.round(v)),
+		[25, 50, 0, 38]
+	);
+	const high = lib.rebase(p, 'high');
+	assert.equal(high.baseIndex, 1);
+	assert.ok(high.pct.every((v: number) => v <= 0));
+});
+
+test('rebase handles an empty series and a base price that is not positive', () => {
+	assert.deepEqual(lib.rebase([], 'start'), { pct: [], baseIndex: -1 });
+	assert.deepEqual(lib.rebase([0, 1], 'start'), {
+		pct: [null, null],
+		baseIndex: 0,
+	});
+});
+
+test('formatPercentAxis writes the sign, the real minus and a fitting number of digits', () => {
+	assert.equal(lib.formatPercentAxis(0), '0%');
+	assert.equal(lib.formatPercentAxis(2.5), '+2.5%');
+	assert.equal(lib.formatPercentAxis(-2.5), '−2.5%');
+	assert.equal(lib.formatPercentAxis(10), '+10%');
+	assert.equal(lib.formatPercentAxis(-12.5), '−13%');
+	assert.equal(lib.formatPercentAxis(Number.NaN), '');
+});
+
+test('summarizeChanges names the base, the best and the worst coin', () => {
+	assert.equal(
+		lib.summarizeChanges('7d', 'start', [
+			{ id: 'BTC', pct: 1.8 },
+			{ id: 'SOL', pct: 4.1 },
+			{ id: 'XRP', pct: -3 },
+		]),
+		'Percent change of 3 coins against start of period, last 7 days. At the latest point the highest is SOL +4.10% and the lowest is XRP −3.00%.'
+	);
+	assert.equal(
+		lib.summarizeChanges('7d', 'low', []),
+		'Percent change chart, last 7 days: no coins selected.'
+	);
+});
+
 test('the sample data is fresh at its own time and stopped a day later', () => {
 	const status = readJson('status.json');
 	const at = Date.parse(status.last_point_at);

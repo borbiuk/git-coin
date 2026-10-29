@@ -90,12 +90,15 @@ test('buildSite writes the files of the contract for the sample tree', async () 
 		'BTC.7d.json',
 		'BTC.90d.json',
 		'BTC.daily.json',
+		'BTC.sources.json',
 		'DOGE.7d.json',
 		'DOGE.90d.json',
 		'DOGE.daily.json',
+		'DOGE.sources.json',
 		'ETH.7d.json',
 		'ETH.90d.json',
 		'ETH.daily.json',
+		'ETH.sources.json',
 	]);
 });
 
@@ -159,6 +162,61 @@ test('the 7 day file is at full resolution and ignores rows after now and other 
 		].map(epoch),
 		p: [200, 210, 220, 230, 250, 240.5],
 	});
+});
+
+test('the sources file holds the last 7 days of each stored source and leaves out a source with no rows', async () => {
+	await writeSampleTree();
+	await buildSite({
+		dataRoot: root,
+		config: await loadFixtureConfig(),
+		outDir: out,
+		now: NOW,
+	});
+	assert.deepEqual(await readOut<unknown>('coins/BTC.sources.json'), {
+		coin: 'BTC',
+		sources: [
+			{
+				src: 'kr',
+				t: [
+					'2026-10-28T12:00:00Z',
+					'2026-10-28T23:50:00Z',
+					'2026-10-29T00:10:00Z',
+					'2026-10-29T00:40:00Z',
+					'2026-10-29T11:45:00Z',
+					'2026-10-29T12:00:00Z',
+				].map(epoch),
+				p: [200, 210, 220, 230, 250, 240.5],
+			},
+			{
+				src: 'cb',
+				t: [epoch('2026-10-28T12:00:01Z')],
+				p: [7777],
+			},
+		],
+	});
+	assert.deepEqual(await readOut<unknown>('coins/ETH.sources.json'), {
+		coin: 'ETH',
+		sources: [],
+	});
+});
+
+test('the sources file is not written while only one source is stored', async () => {
+	await writeSampleTree();
+	const config = await loadFixtureConfig();
+	await buildSite({
+		dataRoot: root,
+		config: {
+			...config,
+			settings: { ...config.settings, stored_sources: ['kraken'] },
+		},
+		outDir: out,
+		now: NOW,
+	});
+	const files = await readdir(join(out, 'coins'));
+	assert.equal(
+		files.some((name) => name.endsWith('.sources.json')),
+		false
+	);
 });
 
 test('the 90 day file has one last-price point per hour and keeps the gaps', async () => {
@@ -283,9 +341,11 @@ test('buildSite handles an empty data root', async () => {
 		'BTC.7d.json',
 		'BTC.90d.json',
 		'BTC.daily.json',
+		'BTC.sources.json',
 		'ETH.7d.json',
 		'ETH.90d.json',
 		'ETH.daily.json',
+		'ETH.sources.json',
 	]);
 });
 
