@@ -225,10 +225,14 @@ function logSources(deps: CollectDeps, checked: Checked[]): void {
 	}
 }
 
-/** True when the dashboard should be published after this run (ADR 0005 D3). */
+/**
+ * True when the dashboard should be published after this run (ADR 0005 D3).
+ * The phase does not matter: the site shows the rows of the primary source only,
+ * so it can be published while several sources are stored (owner decision, 2026-10-29).
+ */
 function decidePublish(config: Config, prev: Status, now: Date): boolean {
-	const { phase, features, publish_min_interval_minutes } = config.settings;
-	if (phase !== 'production' || !features.publish) {
+	const { features, publish_min_interval_minutes } = config.settings;
+	if (!features.publish) {
 		return false;
 	}
 	if (prev.last_publish_at === null) {

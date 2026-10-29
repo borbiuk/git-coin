@@ -289,7 +289,7 @@ The module owner defines the helper types (`GitOpts`, `GitAuthor`, `AlertContext
 - Workflow outputs (written to the file in `$GITHUB_OUTPUT`): `should_publish=true|false`, `rows_written=<n>`.
 - Environment: `GITHUB_TOKEN` (alerts and the `no data` Issue only), `GITHUB_REPOSITORY`, `GITHUB_OUTPUT`. No other variables. No secrets in v1 (ADR 0009 D2).
 - Site builder: `node code/src/build-site.ts --config code/config/coins.json --data-root data --out out/data`. The `publish` job copies `code/site/*` to `out/` and the derived JSON to `out/data/`.
-- Phase behaviour (ADR 0002 Revision 2): `settings.phase = "test"` stores all `stored_sources`, applies only structural price validation, writes the request log, runs no alerts and sets `should_publish=false`. `"production"` stores the first entry of `stored_sources`, applies the step check, and uses `features.alerts` and `features.publish`.
+- Phase behaviour (ADR 0002 Revision 2): `settings.phase = "test"` stores all `stored_sources`, applies only structural price validation, writes the request log, and runs no alerts. `"production"` applies the step check and uses `features.alerts`. `features.publish` decides `should_publish` in both phases (changed on 2026-10-29: the site shows the primary source only, so it can be published during the test).
 - The primary source for alerts and the site is `settings.stored_sources[0]`. Both filter rows by its `src` code.
 
 ### 3.5 Test conventions

@@ -815,7 +815,7 @@ test('a re-run inside min_spacing adds no price rows', async () => {
 	assert.equal(remoteStatus(h).consecutive_failures, 0);
 });
 
-test('should_publish follows the feature flag, the phase and the minimum interval', async () => {
+test('should_publish follows the feature flag and the minimum interval, not the phase', async () => {
 	const h = await makeHarness(
 		productionOneSource((config) => {
 			config.settings.features.publish = true;
@@ -837,10 +837,13 @@ test('should_publish follows the feature flag, the phase and the minimum interva
 	assert.equal((await runAt(publishOff, T0)).shouldPublish, false);
 	assert.equal(remoteStatus(publishOff).last_publish_at, null);
 
+	// The test phase publishes too when the flag is on, and does not when it is off
 	const testPhase = await makeHarness((config) => {
 		config.settings.features.publish = true;
 	});
-	assert.equal((await runAt(testPhase, T0)).shouldPublish, false);
+	assert.equal((await runAt(testPhase, T0)).shouldPublish, true);
+	const testPhaseOff = await makeHarness();
+	assert.equal((await runAt(testPhaseOff, T0)).shouldPublish, false);
 });
 
 // ---- Exit codes ----

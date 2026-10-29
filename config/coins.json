@@ -4,7 +4,7 @@
 		"quote": "USD",
 		"stored_sources": ["kraken", "coinbase", "bitstamp", "coinmetrics"],
 		"phase": "test",
-		"features": { "alerts": false, "publish": false },
+		"features": { "alerts": false, "publish": true },
 		"min_spacing_seconds": 300,
 		"max_step_move_percent": 50,
 		"crosscheck_max_diff_percent": 2,

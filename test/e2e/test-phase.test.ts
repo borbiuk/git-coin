@@ -126,7 +126,7 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 		remoteShow(world.dataRemote, 'data', 'state/status.json')
 	);
 
-	// The test phase runs no alert step and never asks for a publish
+	// The test phase runs no alert step and, with features.publish off, asks for no publish
 	assert.equal(world.issues.calls, 0);
 	assert.deepEqual(
 		remoteLog(world.dataRemote, 'data').filter((entry) =>

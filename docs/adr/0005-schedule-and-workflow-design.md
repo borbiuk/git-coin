@@ -170,7 +170,7 @@ If the pilot or live data shows far fewer runs than the schedule asks, the choic
 
 ### D10. Source test phase (ADR 0002 Revision 2)
 
-- The test uses the same workflow shape as D3 with these changes: it runs on the real public repo and commits to `data` like production; the collector fetches four sources in parallel (13 requests per run); there is no alert step, no `publish` job and no Pages; each run also writes the request log (ADR 0004 D7).
+- The test uses the same workflow shape as D3 with these changes: it runs on the real public repo and commits to `data` like production; the collector fetches four sources in parallel (13 requests per run); there is no alert step; the `publish` job and Pages work as in production when `features.publish` is on (the page shows the primary source only); each run also writes the request log (ADR 0004 D7).
 - The network budget of D5 stays at about 45 seconds because the sources run in parallel. Each source has its own timeout, one retry and no tight loops. Coinbase requests run at most 4 at a time.
 - Cadence: the default cron of D1, for 14 days. A tick that GitHub drops or delays is simply a missing sample. The test measures the sources, not the schedule.
 - The schedule pilot (checklist item 4) stays separate. It runs in a public throwaway repo, writes no price data (only timestamps) and compares 5, 15 and 30 minutes. The source test runs the default cron on the real repo, so it also shows the delivery of that cron. Use it to cross-check the pilot, not to replace it (open question 7).
