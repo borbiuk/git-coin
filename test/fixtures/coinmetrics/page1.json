@@ -1,0 +1,54 @@
+{
+	"data": [
+		{
+			"asset": "ada",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "0.205"
+		},
+		{
+			"asset": "bnb",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "30.25"
+		},
+		{
+			"asset": "btc",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "100.00"
+		},
+		{
+			"asset": "doge",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "0.105"
+		},
+		{
+			"asset": "eth",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "20.5"
+		},
+		{
+			"asset": "link",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "12.5"
+		},
+		{
+			"asset": "ltc",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "58.3"
+		},
+		{
+			"asset": "sol",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "40.1"
+		},
+		{
+			"asset": "xlm",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "0.171"
+		},
+		{
+			"asset": "xrp",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "1.05"
+		}
+	]
+}
