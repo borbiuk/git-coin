@@ -166,29 +166,8 @@ test('an overlapping run that pushed first with rows 1 minute earlier: nothing i
 	assert.equal(readStatus(world.data).sources.kr?.requests, 2);
 });
 
-// ADR 0004 D2: the message says how many rows the commit holds. It is built before the write.
-test(
-	'D-02: after a push conflict the commit message counts the rows that were written',
-	{ todo: 'defect D-02 in the QA report' },
-	async () => {
-		const world = await makeWorld();
-		let fired = false;
-		world.market.onRequest = async (source) => {
-			if (source === 'kraken' && !fired) {
-				fired = true;
-				world.market.onRequest = null;
-				await runOtherCollector(world, plusMinutes(T0, -1));
-			}
-		};
-		await runAt(world, T0);
-		assert.match(
-			remoteLog(world.dataRemote, 'data')[0]?.subject ?? '',
-			/^data: \S+ 0 rows$/
-		);
-	}
-);
-
-test('characterisation: after a push conflict the message keeps the count of the first try', async () => {
+// ADR 0004 D2 (defect D-02, fixed): the message counts the rows that the last write really appended.
+test('after a push conflict the commit message counts the rows of the last write, not of the first try', async () => {
 	const world = await makeWorld();
 	let fired = false;
 	world.market.onRequest = async (source) => {
@@ -199,7 +178,34 @@ test('characterisation: after a push conflict the message keeps the count of the
 		}
 	};
 	await runAt(world, T0);
-	// This documents defect D-02. The commit holds 0 price rows, and the message says 40.
+	// The other run's rows are 1 minute older, so all 40 rows of ours are skipped: the commit holds none
+	const [ours, theirs] = remoteLog(world.dataRemote, 'data');
+	assert.equal(ours?.subject, 'data: 2026-10-29T10:03Z 0 rows');
+	assert.equal(theirs?.subject, 'data: 2026-10-29T10:02Z 40 rows');
+	assert.equal(readStatus(world.data).consecutive_failures, 0, 'an idle run');
+});
+
+test('after a push conflict where our rows still fit, the message says so', async () => {
+	const world = await makeWorld();
+	let fired = false;
+	world.market.onRequest = async (source) => {
+		if (source === 'kraken' && !fired) {
+			fired = true;
+			world.market.onRequest = null;
+			await runOtherCollector(world, plusMinutes(T0, -6));
+		}
+	};
+	await runAt(world, T0);
+	assert.equal(
+		remoteLog(world.dataRemote, 'data')[0]?.subject,
+		'data: 2026-10-29T10:03Z 40 rows'
+	);
+});
+
+test('a plain run with one rejected push keeps a correct message too', async () => {
+	const world = await makeWorld();
+	rejectPushes(world.dataRemote, 1);
+	await runAt(world, T0);
 	assert.equal(
 		remoteLog(world.dataRemote, 'data')[0]?.subject,
 		'data: 2026-10-29T10:03Z 40 rows'

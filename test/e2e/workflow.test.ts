@@ -96,13 +96,20 @@ test('the collect step of the workflow runs the real command line in the real la
 	const before = process.cwd();
 	process.chdir(workspace);
 	try {
+		// The real CLI builds a real Issue client when a token is set. A fake one keeps the test off the network.
 		const code = await runCli(args, env, {
 			http: world.market.http,
+			issueClient: world.issues.client,
 			log: (line) => {
 				lines.push(line);
 			},
 		});
 		assert.equal(code, 0, lines.join('\n'));
+		assert.equal(
+			world.issues.calls,
+			0,
+			'a healthy run makes no Issue call'
+		);
 	} finally {
 		process.chdir(before);
 	}
@@ -156,7 +163,11 @@ test('the dry run of the workflow adds --dry-run, writes nothing and still repor
 				GITHUB_REPOSITORY: 'borbiuk/git-coin',
 				GITHUB_OUTPUT: output,
 			},
-			{ http: world.market.http, log: () => undefined }
+			{
+				http: world.market.http,
+				issueClient: world.issues.client,
+				log: () => undefined,
+			}
 		);
 		assert.equal(code, 0);
 	} finally {
