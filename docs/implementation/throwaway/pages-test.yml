@@ -1,0 +1,87 @@
+# pages-test: deploy a one-file site to GitHub Pages from a scheduled run (checklist item 2, ADR 0005 D3, ADR 0008).
+#
+# Purpose
+#   Show that a public repo on the Free plan can deploy Pages with actions/deploy-pages, from a manual
+#   run AND from a scheduled run, and that the page is served with gzip and max-age=600.
+#
+# How to run
+#   1. Copy this file to .github/workflows/ of the throwaway repo (never into git-coin) and push.
+#   2. Set the Pages source to "GitHub Actions" (Settings, Pages, Source), before the first run.
+#   3. Run it once by hand (Actions tab, Run workflow). Then wait for a scheduled run (every 3 hours,
+#      it may be late).
+#
+# What to record
+#   For each of the two runs: the run link, green or red, and the page URL from the deploy job.
+#   The response headers (README.md in this folder has the curl command). Any error text of the
+#   github-pages environment.
+#
+# How to read the result
+#   Pass: both runs are green, the page opens, and it shows the right event ("workflow_dispatch" for the
+#   manual run, "schedule" for the scheduled run). The headers show content-encoding gzip and
+#   cache-control max-age=600. If the scheduled run is rejected by the environment, the default branch
+#   rule is the first thing to check. Put the result into ADR 0005 and ADR 0008.
+#
+# UNVERIFIED: the SHA of actions/upload-pages-artifact v5.0.0 was not resolved. The tag is used here.
+
+name: pages-test
+
+on:
+    schedule:
+        - cron: '17 */3 * * *'
+    workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+    group: pages-test
+    cancel-in-progress: false
+
+jobs:
+    build:
+        # Does nothing if this file is copied into the real repository by mistake
+        if: github.repository != 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        permissions:
+            contents: read
+        steps:
+            - name: Write a one-file site
+              env:
+                  EVENT: ${{ github.event_name }}
+                  RUN_ID: ${{ github.run_id }}
+              run: |
+                  set -euo pipefail
+                  mkdir site
+                  {
+                      echo '<!doctype html>'
+                      echo '<html lang="en"><head><meta charset="utf-8"><title>pages-test</title></head><body>'
+                      echo '<h1>pages-test</h1>'
+                      echo "<p>built at: $(date -u +%Y-%m-%dT%H:%M:%SZ)</p>"
+                      echo "<p>event: ${EVENT}</p>"
+                      echo "<p>run: ${RUN_ID}</p>"
+                      echo '</body></html>'
+                  } > site/index.html
+                  cat site/index.html
+            - uses: actions/upload-pages-artifact@v5.0.0
+              with:
+                  path: site
+
+    deploy:
+        needs: build
+        if: github.repository != 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+            - name: Print the page URL
+              env:
+                  PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+              run: |
+                  echo "Page URL: ${PAGE_URL}"

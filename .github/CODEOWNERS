@@ -1,0 +1,9 @@
+# Code owners. In a repository with one maintainer this documents who decides; it only blocks a merge
+# when "Require review from Code Owners" is turned on in the branch rules.
+* @borbiuk
+
+# Changes here affect the permissions, the supply chain or the stored data
+/.github/ @borbiuk
+/scripts/ @borbiuk
+/.husky/ @borbiuk
+/config/ @borbiuk

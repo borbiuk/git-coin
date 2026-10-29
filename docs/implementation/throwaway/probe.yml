@@ -1,0 +1,165 @@
+# probe: call the data sources from a GitHub runner (checklist item 3, ADR 0002).
+#
+# Purpose
+#   Nothing was tested from a runner. This workflow calls the exact endpoints of ADR 0002 once per run:
+#   Kraken Ticker (10 pairs), Kraken AssetPairs, Kraken Ticker without pair (the fallback), Coinbase
+#   products/{id}/ticker (10 products, at most 4 at a time), Bitstamp ticker/, Coin Metrics
+#   asset-metrics (ReferenceRateUSD, 10 assets) and, optionally, keyless CoinGecko simple/price.
+#   It prints HTTP status, time in milliseconds, size in bytes and the first 300 characters of each
+#   response. It uses no secrets and never fails the run, so a blocked source does not send emails.
+#
+# How to run
+#   1. Copy this file to .github/workflows/ of the throwaway repo (never into git-coin) and push.
+#   2. Run it two or three times by hand (Actions tab, Run workflow). The schedule runs it 12 times a
+#      day at different hours (three runs at minute 0, three at minute 58, to see 429 patterns near the
+#      full hour). A scheduled run may be late.
+#   3. After 24 to 36 hours turn it off: gh workflow disable probe.yml
+#
+# What to record
+#   Lines that start with PROBE_RESULT (time, request label, HTTP status, milliseconds, bytes),
+#   PROBE_COVERAGE (how many of the 10 coins came back and which are missing), PROBE_KRAKEN_KEYS and
+#   PROBE_KRAKEN_PAIR (result keys, altname, wsname, status), PROBE_COINMETRICS_NEXT, header lines
+#   (rate limit and retry headers, Coin Metrics included) and the runner line (OS image, Node version).
+#
+# How to read the result
+#   README.md in this folder has a shell snippet that turns all runs into one table. Pass: for each
+#   test source, the 200 rate and the 429 rate are recorded and all 10 coins come back. A blocked source
+#   drops out of the test. If fewer than two of the four work, stop and reopen ADR 0002.
+#   Also check that Ticker?pair=A,B,C returns all pairs, and the mapping of the Kraken result keys
+#   (ADR 0002 table), the Coinbase product ids, the Bitstamp markets and the Coin Metrics assets.
+
+name: probe
+
+on:
+    schedule:
+        - cron: '2 1,5,9,13,17,21 * * *'
+        - cron: '58 3,11,19 * * *'
+        - cron: '0 7,15,23 * * *'
+    workflow_dispatch:
+        inputs:
+            coingecko:
+                description: Also call CoinGecko (keyless)
+                type: boolean
+                default: true
+
+permissions: {}
+
+jobs:
+    probe:
+        # Does nothing if this file is copied into the real repository by mistake
+        if: github.repository != 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+        permissions: {}
+        steps:
+            - name: Probe the sources
+              env:
+                  # Scheduled runs have no inputs, so CoinGecko is on for them
+                  WITH_COINGECKO: ${{ github.event_name == 'schedule' || inputs.coingecko }}
+              run: |
+                  # No "set -e": one failing request must not stop the probe
+                  set -uo pipefail
+
+                  export UA='git-coin-probe (+https://github.com/borbiuk/git-coin)'
+                  export OUT
+                  OUT=$(mktemp -d)
+
+                  KRAKEN_PAIRS='XBTUSD,ETHUSD,BNBUSD,XRPUSD,SOLUSD,XDGUSD,LINKUSD,ADAUSD,XLMUSD,LTCUSD'
+                  COINBASE_PRODUCTS='BTC-USD ETH-USD BNB-USD XRP-USD SOL-USD DOGE-USD LINK-USD ADA-USD XLM-USD LTC-USD'
+                  BITSTAMP_PAIRS='BTC/USD ETH/USD BNB/USD XRP/USD SOL/USD DOGE/USD LINK/USD ADA/USD XLM/USD LTC/USD'
+                  COINMETRICS_ASSETS='btc,eth,bnb,xrp,sol,doge,link,ada,xlm,ltc'
+                  COINGECKO_IDS='bitcoin,ethereum,binancecoin,ripple,solana,dogecoin,chainlink,cardano,stellar,litecoin'
+
+                  # probe <label> <url>: one request, 10 s timeout, results go to files
+                  probe() {
+                      local label=$1 url=$2 stat
+                      stat=$(curl -sS -A "${UA}" --max-time 10 -D "${OUT}/${label}.hdr" -o "${OUT}/${label}.body" \
+                          -w '%{http_code} %{time_total} %{size_download}' "${url}" 2>"${OUT}/${label}.err") || true
+                      printf '%s\n' "${stat}" > "${OUT}/${label}.stat"
+                  }
+                  export -f probe
+
+                  # Every printed line of a response starts with a fixed prefix, so a response can never
+                  # forge a workflow command (those must start a line).
+                  report() {
+                      local label=$1 code secs size ms
+                      read -r code secs size < "${OUT}/${label}.stat" || true
+                      ms=$(awk -v s="${secs:-0}" 'BEGIN { printf "%d", s * 1000 }')
+                      echo "PROBE_RESULT,$(date -u +%Y-%m-%dT%H:%M:%SZ),${label},${code:-000},${ms},${size:-0}"
+                      echo "| ${label} | ${code:-000} | ${ms} | ${size:-0} |" >> "${GITHUB_STEP_SUMMARY}"
+                      grep -i -E '^(retry-after|x-ratelimit|ratelimit|x-rate|server|cf-ray)' "${OUT}/${label}.hdr" 2>/dev/null \
+                          | tr -d '\r' | sed "s/^/header (${label}): /"
+                      if [ -s "${OUT}/${label}.err" ]; then
+                          printf 'curl error (%s): %s\n' "${label}" "$(head -c 200 "${OUT}/${label}.err" | tr -c '[:print:]' ' ')"
+                      fi
+                      printf 'body (%s): %s\n' "${label}" "$(head -c 300 "${OUT}/${label}.body" 2>/dev/null | tr -c '[:print:]' ' ')"
+                  }
+
+                  # coverage <label> <wanted count> <missing names, or "unreadable">
+                  coverage() {
+                      local label=$1 want=$2 missing=$3
+                      if [ "${missing}" = 'unreadable' ]; then
+                          echo "PROBE_COVERAGE,${label},unreadable,"
+                          return
+                      fi
+                      echo "PROBE_COVERAGE,${label},$((want - $(wc -w <<< "${missing}")))/${want},${missing}"
+                  }
+
+                  {
+                      echo '### Probe results'
+                      echo
+                      echo '| request | HTTP | ms | bytes |'
+                      echo '| --- | --- | --- | --- |'
+                  } >> "${GITHUB_STEP_SUMMARY}"
+
+                  echo "runner: $(grep -m1 PRETTY_NAME /etc/os-release) image=${ImageOS:-unknown}/${ImageVersion:-unknown} node=$(node --version 2>&1)"
+
+                  # Kraken: about one request per second is the safe rate, so pause between the calls
+                  probe kraken_ticker "https://api.kraken.com/0/public/Ticker?pair=${KRAKEN_PAIRS}"
+                  sleep 1.2
+                  probe kraken_assetpairs "https://api.kraken.com/0/public/AssetPairs?pair=${KRAKEN_PAIRS}"
+                  sleep 1.2
+                  probe kraken_ticker_all 'https://api.kraken.com/0/public/Ticker'
+
+                  # Coinbase: at most 4 requests in flight (the limit is 10 per second per IP)
+                  printf '%s\n' ${COINBASE_PRODUCTS} | xargs -P 4 -I{} bash -c 'probe "coinbase_{}" "https://api.exchange.coinbase.com/products/{}/ticker"'
+
+                  probe bitstamp_ticker 'https://www.bitstamp.net/api/v2/ticker/'
+                  probe coinmetrics_assetmetrics "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?assets=${COINMETRICS_ASSETS}&metrics=ReferenceRateUSD&frequency=1m&limit_per_asset=1&paging_from=end"
+                  if [ "${WITH_COINGECKO}" = 'true' ]; then
+                      probe coingecko_simpleprice "https://api.coingecko.com/api/v3/simple/price?ids=${COINGECKO_IDS}&vs_currencies=usd&include_last_updated_at=true"
+                  fi
+
+                  for f in "${OUT}"/*.stat; do
+                      report "$(basename "${f}" .stat)"
+                  done
+
+                  # Coverage: did all 10 coins come back?
+                  missing=$(jq -r --arg want "${KRAKEN_PAIRS}" '($want | split(",")) - [.result[]?.altname] | join(" ")' "${OUT}/kraken_assetpairs.body" 2>/dev/null) || missing='unreadable'
+                  coverage kraken_assetpairs_altname 10 "${missing}"
+                  count=$(jq -r '(.result // {}) | length' "${OUT}/kraken_ticker.body" 2>/dev/null) || count=0
+                  echo "PROBE_COVERAGE,kraken_ticker_pairs,${count}/10,"
+                  echo "PROBE_KRAKEN_KEYS,$(jq -r '(.result // {}) | keys | join(" ")' "${OUT}/kraken_ticker.body" 2>/dev/null)"
+                  jq -r '(.result // {}) | to_entries[] | "PROBE_KRAKEN_PAIR,\(.key),\(.value.altname),\(.value.wsname),\(.value.status)"' "${OUT}/kraken_assetpairs.body" 2>/dev/null
+                  echo "PROBE_KRAKEN_ALL_PAIRS,$(jq -r '(.result // {}) | length' "${OUT}/kraken_ticker_all.body" 2>/dev/null)"
+
+                  missing=''
+                  for product in ${COINBASE_PRODUCTS}; do
+                      price=$(jq -r '.price // empty' "${OUT}/coinbase_${product}.body" 2>/dev/null)
+                      if [ -z "${price}" ]; then
+                          missing="${missing} ${product}"
+                      fi
+                  done
+                  coverage coinbase_products 10 "${missing# }"
+
+                  missing=$(jq -r --arg want "${BITSTAMP_PAIRS}" '($want | split(" ")) - [.[]?.pair] | join(" ")' "${OUT}/bitstamp_ticker.body" 2>/dev/null) || missing='unreadable'
+                  coverage bitstamp_pairs 10 "${missing}"
+
+                  missing=$(jq -r --arg want "${COINMETRICS_ASSETS}" '($want | split(",")) - [.data[]?.asset] | join(" ")' "${OUT}/coinmetrics_assetmetrics.body" 2>/dev/null) || missing='unreadable'
+                  coverage coinmetrics_assets 10 "${missing}"
+                  echo "PROBE_COINMETRICS_NEXT,$(jq -r 'if .next_page_url then "yes" else "no" end' "${OUT}/coinmetrics_assetmetrics.body" 2>/dev/null)"
+
+                  if [ "${WITH_COINGECKO}" = 'true' ]; then
+                      missing=$(jq -r --arg want "${COINGECKO_IDS}" '($want | split(",")) - keys | join(" ")' "${OUT}/coingecko_simpleprice.body" 2>/dev/null) || missing='unreadable'
+                      coverage coingecko_ids 10 "${missing}"
+                  fi
