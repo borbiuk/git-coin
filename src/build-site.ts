@@ -3,7 +3,8 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { readSiteConfig } from './site/config-file.ts';
+import { loadConfig } from './config.ts';
+import { createSeriesReader } from './series.ts';
 import {
 	NINETY_DAYS_SECONDS,
 	PERIODS,
@@ -15,7 +16,7 @@ import {
 	periodStats,
 	recentPoints,
 } from './site/derive.ts';
-import { createFileSeriesReader, findFirstDay } from './site/series-reader.ts';
+import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
 import { isoSeconds, parseIso } from './time.ts';
 import { SRC_CODE } from './types.ts';
@@ -47,7 +48,7 @@ export async function buildSite(opts: {
 
 	await mkdir(join(outDir, 'coins'), { recursive: true });
 
-	const reader = createFileSeriesReader(dataRoot);
+	const reader = createSeriesReader(dataRoot);
 	const firstDay = await findFirstDay(dataRoot);
 	const latest: DerivedLatest = {
 		generated_at: generatedAt,
@@ -149,7 +150,7 @@ async function main(argv: string[]): Promise<void> {
 		values.now === undefined ? new Date() : new Date(parseIso(values.now));
 	await buildSite({
 		dataRoot: resolve(dataRoot),
-		config: await readSiteConfig(resolve(configPath)),
+		config: await loadConfig(resolve(configPath)),
 		outDir: resolve(out),
 		now,
 	});

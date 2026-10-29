@@ -4,12 +4,71 @@
 		"quote": "USD",
 		"stored_sources": ["kraken", "coinbase"],
 		"phase": "test",
-		"features": { "alerts": false, "publish": true }
+		"features": { "alerts": false, "publish": true },
+		"min_spacing_seconds": 300,
+		"max_step_move_percent": 50,
+		"crosscheck_max_diff_percent": 2,
+		"publish_min_interval_minutes": 30,
+		"stale_warn_minutes": 120,
+		"stale_stop_minutes": 360,
+		"alert_defaults": {
+			"enabled": true,
+			"direction": "both",
+			"cooldown_hours": 6,
+			"daily_issue_cap": 5,
+			"auto_close_hours": 24,
+			"move_1h": {
+				"window_minutes": 60,
+				"threshold_percent": 5,
+				"ref_tolerance_minutes": 30
+			},
+			"move_24h": {
+				"window_minutes": 1440,
+				"threshold_percent": 15,
+				"ref_tolerance_minutes": 120
+			}
+		}
 	},
 	"coins": [
-		{ "id": "BTC", "name": "Bitcoin", "enabled": true },
-		{ "id": "ETH", "name": "Ethereum", "enabled": true },
-		{ "id": "DOGE", "name": "Dogecoin", "enabled": false },
-		{ "id": "XRP", "name": "XRP", "enabled": false }
+		{
+			"id": "BTC",
+			"name": "Bitcoin",
+			"enabled": true,
+			"added": "2026-10-01",
+			"sources": {
+				"kraken_pair": "XBTUSD",
+				"coinbase_product": "BTC-USD"
+			}
+		},
+		{
+			"id": "ETH",
+			"name": "Ethereum",
+			"enabled": true,
+			"added": "2026-10-01",
+			"sources": {
+				"kraken_pair": "ETHUSD",
+				"coinbase_product": "ETH-USD"
+			}
+		},
+		{
+			"id": "DOGE",
+			"name": "Dogecoin",
+			"enabled": false,
+			"added": "2026-08-01",
+			"sources": {
+				"kraken_pair": "XDGUSD",
+				"coinbase_product": "DOGE-USD"
+			}
+		},
+		{
+			"id": "XRP",
+			"name": "XRP",
+			"enabled": false,
+			"added": "2026-08-01",
+			"sources": {
+				"kraken_pair": "XRPUSD",
+				"coinbase_product": "XRP-USD"
+			}
+		}
 	]
 }

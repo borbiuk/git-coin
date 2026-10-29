@@ -58,51 +58,32 @@ export async function readStatusFile(
 	};
 }
 
-function severityOf(value: unknown): Alert['severity'] {
-	return value === 'extreme' || value === 'critical' ? 'extreme' : 'high';
-}
-
-function toAlert(entry: unknown, fallbackCoin?: string): Alert | null {
-	if (!isRecord(entry)) {
-		return null;
-	}
-	const coin = entry.coin ?? fallbackCoin;
-	const ts = entry.ts ?? entry.last_alert_at;
-	const direction = entry.direction;
-	const issue = entry.issue ?? entry.issue_number;
+/** One entry of `recent` in state/alerts.json (written by src/alerts/state.ts), or null if it is not shown. */
+function toAlert(entry: unknown): Alert | null {
 	if (
-		typeof coin !== 'string' ||
-		typeof ts !== 'string' ||
-		Number.isNaN(Date.parse(ts)) ||
-		(direction !== 'up' && direction !== 'down') ||
-		typeof issue !== 'number' ||
-		!Number.isInteger(issue)
+		!isRecord(entry) ||
+		typeof entry.coin !== 'string' ||
+		typeof entry.ts !== 'string' ||
+		Number.isNaN(Date.parse(entry.ts)) ||
+		(entry.direction !== 'up' && entry.direction !== 'down') ||
+		(entry.severity !== 'warning' && entry.severity !== 'critical') ||
+		typeof entry.issue !== 'number' ||
+		entry.suppressed === true
 	) {
 		return null;
 	}
-	return { coin, ts, direction, severity: severityOf(entry.severity), issue };
-}
-
-/** The key of a per-key state entry is `COIN:direction` or `COIN|direction`, optionally followed by more parts. */
-function fromKeyedEntries(entries: Record<string, unknown>): Alert[] {
-	const alerts: Alert[] = [];
-	for (const [key, value] of Object.entries(entries)) {
-		const [coin, direction] = key.split(/[:|]/);
-		if (isRecord(value)) {
-			const alert = toAlert({ direction, ...value }, coin);
-			if (alert !== null) {
-				alerts.push(alert);
-			}
-		}
-	}
-	return alerts;
+	return {
+		coin: entry.coin,
+		ts: entry.ts,
+		direction: entry.direction,
+		severity: entry.severity === 'critical' ? 'extreme' : 'high',
+		issue: entry.issue,
+	};
 }
 
 /**
- * The shape of state/alerts.json belongs to the alert module (ADR 0006 D4), so this reader is lenient.
- * It accepts a list under `alerts` or `history` (items with coin, ts, direction, severity, issue)
- * and a record under `keys` (one entry per `COIN:direction` key with `last_alert_at` and `issue_number`).
- * Anything else gives an empty list.
+ * The newest alerts that have an Issue, from the `recent` list of state/alerts.json (oldest first there).
+ * A missing file, a file that is not valid JSON and a file without a `recent` list give an empty list.
  */
 export async function readAlertsFile(
 	dataRoot: string,
@@ -110,27 +91,16 @@ export async function readAlertsFile(
 ): Promise<DerivedAlerts> {
 	const parsed = await readJson(join(dataRoot, 'state', 'alerts.json'));
 	const alerts: Alert[] = [];
-	if (isRecord(parsed)) {
-		for (const name of ['alerts', 'history']) {
-			const list = parsed[name];
-			if (Array.isArray(list)) {
-				for (const entry of list) {
-					const alert = toAlert(entry);
-					if (alert !== null) {
-						alerts.push(alert);
-					}
-				}
+	if (isRecord(parsed) && parsed.schema_version === 1) {
+		const recent = Array.isArray(parsed.recent) ? parsed.recent : [];
+		// Newest first: walk the list from its end, then a stable sort keeps that order for equal times
+		for (let index = recent.length - 1; index >= 0; index -= 1) {
+			const alert = toAlert(recent[index]);
+			if (alert !== null) {
+				alerts.push(alert);
 			}
 		}
-		if (isRecord(parsed.keys)) {
-			alerts.push(...fromKeyedEntries(parsed.keys));
-		}
 	}
-	alerts.sort(
-		(a, b) =>
-			Date.parse(b.ts) - Date.parse(a.ts) ||
-			a.coin.localeCompare(b.coin) ||
-			a.direction.localeCompare(b.direction)
-	);
+	alerts.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
 	return { generated_at: generatedAt, alerts: alerts.slice(0, MAX_ALERTS) };
 }

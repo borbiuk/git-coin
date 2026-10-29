@@ -1,0 +1,141 @@
+{
+	"schema_version": 1,
+	"keys": {
+		"ETH:down": {
+			"issue": 13,
+			"last_alert_at": "2026-10-28T13:00:00Z",
+			"last_comment_at": null,
+			"last_trigger_at": "2026-10-28T13:00:00Z",
+			"last_suppressed_at": null
+		}
+	},
+	"daily": { "day": "2026-10-28", "created": 5, "suppressed": 2 },
+	"recent": [
+		{
+			"coin": "BTC",
+			"ts": "2026-10-20T10:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 1,
+			"suppressed": false
+		},
+		{
+			"coin": "ETH",
+			"ts": "2026-10-21T10:00:00Z",
+			"direction": "up",
+			"window": "24h",
+			"severity": "critical",
+			"issue": 2,
+			"suppressed": false
+		},
+		{
+			"coin": "BTC",
+			"ts": "2026-10-22T10:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": null,
+			"suppressed": true
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-23T10:00:00Z",
+			"direction": "up",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 5,
+			"suppressed": false
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-24T10:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 6,
+			"suppressed": false
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-25T10:00:00Z",
+			"direction": "up",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 7,
+			"suppressed": false
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-26T10:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 8,
+			"suppressed": false
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-27T10:00:00Z",
+			"direction": "up",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 9,
+			"suppressed": false
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-28T10:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 10,
+			"suppressed": false
+		},
+		{
+			"coin": "XRP",
+			"ts": "2026-10-28T11:00:00Z",
+			"direction": "up",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 11,
+			"suppressed": false
+		},
+		{
+			"coin": "XRP",
+			"ts": "2026-10-28T12:00:00Z",
+			"direction": "down",
+			"window": "24h",
+			"severity": "critical",
+			"issue": 12,
+			"suppressed": false
+		},
+		{
+			"coin": "ETH",
+			"ts": "2026-10-28T13:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 13,
+			"suppressed": false
+		},
+		{
+			"coin": "SOL",
+			"ts": "2026-10-28T14:00:00Z",
+			"direction": "up",
+			"window": "1h",
+			"severity": "warning",
+			"issue": null,
+			"suppressed": false
+		},
+		{
+			"coin": "SOL",
+			"ts": "2026-10-28T15:00:00Z",
+			"direction": "sideways",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 14,
+			"suppressed": false
+		}
+	]
+}
