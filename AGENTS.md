@@ -49,6 +49,6 @@ The shared types are in `src/types.ts` (the contract of [docs/implementation/pla
 
 ## Rules of engagement
 
-- Contributors: `.github/CONTRIBUTING.md` and `SECURITY.md` (added by agent A14; the orchestrator turns these two names into links after the merge).
+- Contributors: [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) (checks, commits, pull requests). Security: [SECURITY.md](SECURITY.md).
 - English for code comments and technical docs in the repo.
 - Follow the working rules in [CLAUDE.md](CLAUDE.md).

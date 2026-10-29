@@ -219,7 +219,7 @@ Needs the 14 days of data.
 
 ### 1. Run the analysis
 
-`tools/analyze-sources.ts` reads the data checkout and prints the gate and score tables of ADR 0002 Revision 2, points 7 and 8. Look at its options first: `./scripts/with-node24.sh node tools/analyze-sources.ts --help`. UNVERIFIED: the flag `--data-root` below follows the collector's naming. Use the flag names that the help prints.
+`tools/analyze-sources.ts` reads the data checkout and prints the gate and score tables of ADR 0002 Revision 2, points 7 and 8. Look at its options first: `./scripts/with-node24.sh node tools/analyze-sources.ts --help`. The flag `--data-root` below is the real one (checked against the tool).
 
 ```bash
 git fetch origin data
