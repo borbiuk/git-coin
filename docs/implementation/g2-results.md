@@ -68,3 +68,15 @@ Run in `git-coin-throwaway`, times in UTC on 2026-10-29. The owner reads the inb
 
 - `probe.yml`, `issue-email-test.yml` and `bot-push-test.yml` did not turn off `bash -e`. A `grep` without a match ended the probe after the first request. Fixed.
 - The `borbiuk` token of `gh` has the scopes `repo`, `gist`, `read:org` and `admin:public_key`, but not `workflow`. Pushing worked because `git` used SSH with `~/.ssh/id_rsa` (the default SSH key belongs to the work account `nborbiuk_coral`). The three throwaway repos use a local `core.sshCommand` for this. No global setting was changed.
+
+## Gate G1 and the first real run (2026-10-29, later)
+
+- `borbiuk/git-coin` was made public, `main` and the orphan `data` branch were pushed, Pages source was set to "GitHub Actions", the ruleset `protect-data-and-main` (deletion and non-fast-forward blocked, no required pull requests) was added, and secret scanning and push protection were turned on (the API showed both as disabled right after the repo became public).
+- First CI on a real runner: `build` (jobs `build`, `checks`, `config`, `symbols`, `node22`) and `codeql` passed. This is the first time `actionlint`, `zizmor` and `check-jsonschema` ran. `scorecard` failed because of the default branch (see below).
+- `collect.yml`: a manual dry run reported "40 rows would be written" (four sources, ten coins) on the runner. The real run wrote the first bot commit to `data` (`data: 2026-10-29T20:46Z 40 rows`, author `github-actions[bot]`). The schedule is active, so the 14-day source test has started.
+- The dashboard is live at https://borbiuk.github.io/git-coin/ with real Kraken prices (primary source). The charts need more points: the 7-day file had one point after the first run.
+
+### Two traps found (add to the runbook order)
+
+1. **The first pushed branch became the default branch.** The repository was empty, so pushing `data` first made `data` the default branch. Scorecard failed ("only the default branch is supported"), and scheduled workflows and Pages deploy only from the default branch. Fix: `gh repo edit borbiuk/git-coin --default-branch main`. Next time push `main` first, or set the default branch before anything else.
+2. **The `github-pages` environment allowed only the old default branch.** GitHub created the environment when Pages was enabled and allowed deployment from the then default branch (`data`). The `publish` job failed before its first step with: Branch "main" is not allowed to deploy to github-pages due to environment protection rules. Fix: add the policy for `main` (`gh api -X POST repos/borbiuk/git-coin/environments/github-pages/deployment-branch-policies -f name=main -f type=branch`) and remove the one for `data`. Then `gh run rerun <id> --failed`.
