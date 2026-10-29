@@ -245,3 +245,103 @@ test('appendOnlyGuard counts a changed line, a deleted file and ignores state', 
 	rmSync(join(a, CSV));
 	assert.deepEqual(await appendOnlyGuard(a), { ok: false, deleted: 1 });
 });
+
+/** Commits and pushes `content` as the daily file, so HEAD holds it exactly (for example without a final line break). */
+function commitCsv(dir: string, content: string): void {
+	writeFileSync(join(dir, CSV), content);
+	git(dir, 'add', '-A');
+	git(dir, 'commit', '--quiet', '-m', 'Set the file');
+	git(dir, 'push', '--quiet', 'origin', 'data');
+}
+
+test('commitAndPush writes the message function after the redone write', async () => {
+	const { remote, a, b } = makeFixture();
+	// An overlapping run (clone b) already pushed rows 1 and 2
+	await commitAndPush(opts(b), 'data: b', () => {
+		appendLine(b, 'row-1');
+		appendLine(b, 'row-2');
+		return Promise.resolve();
+	});
+
+	// The write skips the rows that the file already has, like the spacing guard of the collector
+	let count = 0;
+	const result = await commitAndPush(
+		opts(a),
+		() => `data: ${count} rows`,
+		() => {
+			const existing = readFileSync(join(a, CSV), 'utf8').split('\n');
+			count = 0;
+			for (const row of ['row-1', 'row-2', 'row-3']) {
+				if (!existing.includes(row)) {
+					appendLine(a, row);
+					count += 1;
+				}
+			}
+			return Promise.resolve();
+		}
+	);
+	assert.equal(result.pushed, true);
+	assert.equal(result.tries, 2);
+	assert.equal(
+		git(remote, 'log', '-1', '--format=%s', 'data'),
+		'data: 1 rows'
+	);
+	assert.equal(remoteCsv(remote), `${HEADER}\nrow-1\nrow-2\nrow-3`);
+});
+
+test('appendOnlyGuard accepts closing a half line', async () => {
+	const { a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5`);
+	writeFileSync(join(a, CSV), `${HEADER}\nrow-1,100.5\nrow-2,101.5\n`);
+	assert.deepEqual(await appendOnlyGuard(a), { ok: true, deleted: 0 });
+});
+
+test('appendOnlyGuard accepts closing a half line in the meta folder', async () => {
+	const { a } = makeFixture();
+	const meta = join(a, 'data/meta/2026/10/29');
+	mkdirSync(meta, { recursive: true });
+	writeFileSync(join(meta, 'requests.csv'), 'ts,src\nrow-1');
+	git(a, 'add', '-A');
+	git(a, 'commit', '--quiet', '-m', 'Add the log');
+	writeFileSync(join(meta, 'requests.csv'), 'ts,src\nrow-1\nrow-2\n');
+	assert.deepEqual(await appendOnlyGuard(a), { ok: true, deleted: 0 });
+});
+
+test('commitAndPush commits a closed half line', async () => {
+	const { remote, a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5`);
+	const result = await commitAndPush(opts(a), 'data: close', () => {
+		writeFileSync(join(a, CSV), `${HEADER}\nrow-1,100.5\nrow-2,101.5\n`);
+		return Promise.resolve();
+	});
+	assert.equal(result.pushed, true);
+	assert.equal(remoteCsv(remote), `${HEADER}\nrow-1,100.5\nrow-2,101.5`);
+});
+
+test('appendOnlyGuard rejects a changed digit in an old line', async () => {
+	const { a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5\nrow-2,101.5\n`);
+	writeFileSync(join(a, CSV), `${HEADER}\nrow-1,100.6\nrow-2,101.5\nrow-3\n`);
+	assert.deepEqual(await appendOnlyGuard(a), { ok: false, deleted: 1 });
+});
+
+test('appendOnlyGuard rejects a change of a half line that is not a line break', async () => {
+	const { a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5`);
+	writeFileSync(join(a, CSV), `${HEADER}\nrow-1,100.55\n`);
+	assert.deepEqual(await appendOnlyGuard(a), { ok: false, deleted: 1 });
+});
+
+test('appendOnlyGuard rejects a deleted line', async () => {
+	const { a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5\nrow-2,101.5\n`);
+	writeFileSync(join(a, CSV), `${HEADER}\nrow-2,101.5\n`);
+	assert.deepEqual(await appendOnlyGuard(a), { ok: false, deleted: 1 });
+});
+
+test('appendOnlyGuard rejects a deleted file that has no final line break', async () => {
+	const { a } = makeFixture();
+	commitCsv(a, `${HEADER}\nrow-1,100.5`);
+	rmSync(join(a, CSV));
+	assert.deepEqual(await appendOnlyGuard(a), { ok: false, deleted: 2 });
+});

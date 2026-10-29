@@ -2,6 +2,8 @@
 // Uses the `git` binary only, with argument arrays and no shell.
 
 import { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 export interface GitAuthor {
 	name: string;
@@ -65,7 +67,62 @@ async function gitOrThrow(cwd: string, args: string[]): Promise<string> {
 	return result.stdout;
 }
 
-/** Counts the lines that the working tree removes from the data files, compared with HEAD. */
+// Reads the content of a file at HEAD as bytes
+function gitBuffer(cwd: string, args: string[]): Promise<Buffer> {
+	return new Promise((resolve, reject) => {
+		execFile(
+			'git',
+			args,
+			{
+				cwd,
+				timeout: GIT_TIMEOUT_MS,
+				maxBuffer: 64 * 1024 * 1024,
+				encoding: 'buffer',
+				env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+			},
+			(error, stdout) => {
+				if (error !== null) {
+					reject(new Error(`git ${args[0]} failed`));
+					return;
+				}
+				resolve(stdout);
+			}
+		);
+	});
+}
+
+/** True when `next` is `previous` plus more bytes, and a half last line is only closed by a line break. */
+function isPureAppend(previous: Buffer, next: Buffer): boolean {
+	if (next.length < previous.length) {
+		return false;
+	}
+	if (!next.subarray(0, previous.length).equals(previous)) {
+		return false;
+	}
+	if (previous.length === 0 || previous[previous.length - 1] === 0x0a) {
+		return true;
+	}
+	// The old file ended in the middle of a line. The only allowed change is the line break that closes it.
+	return next.length === previous.length || next[previous.length] === 0x0a;
+}
+
+async function onlyAppended(repoDir: string, path: string): Promise<boolean> {
+	let next: Buffer;
+	try {
+		next = await readFile(join(repoDir, path));
+	} catch {
+		// The file was deleted
+		return false;
+	}
+	const previous = await gitBuffer(repoDir, ['show', `HEAD:${path}`]);
+	return isPureAppend(previous, next);
+}
+
+/**
+ * Counts the lines that the working tree removes from the data files, compared with HEAD.
+ * A file whose new content starts with the old content byte for byte is only appended to, even though
+ * git shows a closed half line as one deleted and one added line.
+ */
 export async function appendOnlyGuard(
 	repoDir: string
 ): Promise<{ ok: boolean; deleted: number }> {
@@ -73,16 +130,23 @@ export async function appendOnlyGuard(
 		'diff',
 		'HEAD',
 		'--numstat',
+		'-z',
 		'--no-renames',
 		'--',
 		...GUARDED_PATHS,
 	]);
 	let deleted = 0;
-	for (const line of out.split('\n')) {
-		if (line === '') {
+	for (const entry of out.split('\0')) {
+		if (entry === '') {
 			continue;
 		}
-		const removed = line.split('\t')[1];
+		const [, removed, path] = entry.split('\t');
+		if (removed === '0') {
+			continue;
+		}
+		if (await onlyAppended(repoDir, path)) {
+			continue;
+		}
 		// A binary file shows `-`. It is not CSV, so count it as a violation.
 		deleted += removed === '-' ? 1 : Number(removed);
 	}
@@ -92,11 +156,13 @@ export async function appendOnlyGuard(
 /**
  * Runs `write()`, checks the guard, commits and pushes.
  * A rejected push resets to the remote branch, runs `write()` again and pushes again, up to 3 tries.
+ * `message` can be a function. It is called right before each commit, after that try's `write()`,
+ * so the text can describe what the last `write()` really did.
  * Throws if the guard fails (nothing is committed). Returns `commit: null` when nothing changed or the push failed.
  */
 export async function commitAndPush(
 	opts: GitOpts,
-	message: string,
+	message: string | (() => string),
 	write: () => Promise<void>
 ): Promise<{ pushed: boolean; commit: string | null; tries: number }> {
 	const { repoDir, branch } = opts;
@@ -136,7 +202,7 @@ export async function commitAndPush(
 			'commit',
 			'--quiet',
 			'-m',
-			message,
+			typeof message === 'string' ? message : message(),
 		]);
 		const commit = (
 			await gitOrThrow(repoDir, ['rev-parse', 'HEAD'])
