@@ -1,0 +1,44 @@
+{
+	"schema_version": 1,
+	"phase": "production",
+	"last_run_at": "2026-10-29T12:01:00Z",
+	"last_point_at": "2026-10-29T12:00:00Z",
+	"consecutive_failures": 0,
+	"last_publish_at": "2026-10-29T12:03:00Z",
+	"sources": {
+		"kr": {
+			"requests": 2880,
+			"failures": 14,
+			"failures_by_error": { "timeout": 9, "http_429": 5 },
+			"consecutive_failures": 0,
+			"last_ok_at": "2026-10-29T12:00:00Z"
+		}
+	},
+	"coins": {
+		"BTC": {
+			"last_point_at": "2026-10-29T12:00:00Z",
+			"status": "ok",
+			"rejected_count": 0,
+			"last_reject_reason": null
+		},
+		"ETH": {
+			"last_point_at": "2026-10-29T12:00:00Z",
+			"status": "ok",
+			"rejected_count": 0,
+			"last_reject_reason": null
+		},
+		"DOGE": {
+			"last_point_at": "2026-10-29T12:00:00Z",
+			"status": "ok",
+			"rejected_count": 2,
+			"last_reject_reason": "step"
+		},
+		"XLM": {
+			"last_point_at": null,
+			"status": "source_missing",
+			"rejected_count": 0,
+			"last_reject_reason": null
+		}
+	},
+	"generated_at": "2026-10-29T12:03:00Z"
+}
