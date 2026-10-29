@@ -217,10 +217,11 @@ describe('config', () => {
 				'ADA',
 				'XLM',
 				'LTC',
+				'USDT',
 			]
 		);
 		for (const source of config.settings.stored_sources) {
-			assert.equal(enabledCoins(config, source).length, 10);
+			assert.equal(enabledCoins(config, source).length, 11);
 		}
 		const [btc, eth, bnb] = config.coins;
 		assert.equal(btc.sources.kraken_pair, 'XBTUSD');
@@ -234,6 +235,12 @@ describe('config', () => {
 			move_24h: { threshold_percent: 12 },
 		});
 		assert.equal(bnb.alerts, undefined);
+		// The rate entry that turns the prices into USDT, with no alerts of its own
+		const usdt = config.coins[10];
+		assert.equal(usdt.role, 'rate');
+		assert.deepEqual(usdt.alerts, { enabled: false });
+		assert.equal(usdt.sources.kraken_pair, 'USDTUSD');
+		assert.equal(btc.role, undefined);
 	});
 
 	test('enabledCoins skips disabled coins and coins without an id for the source', async () => {
@@ -511,6 +518,20 @@ describe('config', () => {
 			schema: false,
 		},
 		{
+			name: 'role other than rate',
+			path: ['coins', 0, 'role'],
+			value: 'coin',
+			message: /role.*must be "rate"/,
+			schema: true,
+		},
+		{
+			name: 'rate entry whose alerts are not switched off',
+			path: ['coins', 0, 'role'],
+			value: 'rate',
+			message: /rate entry must set "enabled" to false/,
+			schema: false,
+		},
+		{
 			name: 'stale_warn not below stale_stop',
 			path: ['settings', 'stale_warn_minutes'],
 			value: 360,
@@ -551,6 +572,21 @@ describe('config', () => {
 			assert.equal(schemaAccepts(bad), !item.schema);
 		});
 	}
+
+	test('rejects two rate entries', async () => {
+		const bad = JSON.parse(JSON.stringify(valid));
+		for (const index of [0, 1]) {
+			bad.coins[index].role = 'rate';
+			bad.coins[index].alerts = { enabled: false };
+		}
+		const path = await writeTemp(JSON.stringify(bad));
+		await assert.rejects(
+			loadConfig(path),
+			(error: unknown) =>
+				error instanceof ConfigError &&
+				/only one entry can have the role "rate"/.test(error.message)
+		);
+	});
 
 	test('a disabled coin may have no source ids', async () => {
 		const config = await loadConfig(fileURLToPath(VALID));

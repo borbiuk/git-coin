@@ -61,13 +61,27 @@ before(async () => {
 });
 
 function configFor(
-	primary: Array<'kraken' | 'coinbase' | 'bitstamp' | 'coinmetrics'>
+	primary: Array<'kraken' | 'coinbase' | 'bitstamp' | 'coinmetrics'>,
+	convert = false
 ): Config {
 	const config = structuredClone(world.config);
 	config.settings.phase = 'production';
 	config.settings.stored_sources = primary;
 	config.settings.features.publish = true;
+	if (!convert) {
+		// The rate entry is off: the site shows the stored USD prices as they are
+		for (const coin of config.coins) {
+			if (coin.role === 'rate') {
+				coin.enabled = false;
+			}
+		}
+	}
 	return config;
+}
+
+/** The coins the dashboard shows: every entry except the rate entry. */
+function shownCoins(): Config['coins'] {
+	return world.config.coins.filter((coin) => coin.role !== 'rate');
 }
 
 function readJson(path: string): Record<string, unknown> {
@@ -119,9 +133,9 @@ test('the site files in production mode have the contract shapes and use only th
 	assert.equal(latest.src, 'kr');
 	assert.deepEqual(
 		Object.keys(latest.coins),
-		world.config.coins.map((coin) => coin.id)
+		shownCoins().map((coin) => coin.id)
 	);
-	for (const coin of world.config.coins) {
+	for (const coin of shownCoins()) {
 		const entry = latest.coins[coin.id];
 		const series = numbers(coin.id, 'kr');
 		assert.equal(entry?.name, coin.name);
@@ -140,7 +154,7 @@ test('the site files in production mode have the contract shapes and use only th
 		}
 	}
 
-	for (const coin of world.config.coins) {
+	for (const coin of shownCoins()) {
 		const seven = readJson(join(out, 'coins', `${coin.id}.7d.json`)) as {
 			coin: string;
 			src: string;
@@ -221,7 +235,7 @@ test('another primary source changes every series, and the outage of that source
 		coins: Record<string, { price: number }>;
 	};
 	assert.equal(latest.src, 'cb');
-	for (const coin of world.config.coins) {
+	for (const coin of shownCoins()) {
 		assert.equal(
 			latest.coins[coin.id]?.price,
 			numbers(coin.id, 'cb').at(-1)
@@ -257,7 +271,7 @@ test('the dashboard reads every file that the builder wrote, with its own checks
 		now: NOW,
 	});
 	for (const range of Object.values(lib.RANGES) as Array<{ file: string }>) {
-		for (const coin of world.config.coins) {
+		for (const coin of shownCoins()) {
 			const path = join(page, lib.coinDataUrl(coin.id, range.file));
 			assert.ok(existsSync(path), path);
 		}
@@ -290,6 +304,49 @@ test('the dashboard reads every file that the builder wrote, with its own checks
 		).name,
 		'Kraken'
 	);
+});
+
+test('with the rate entry on, prices are shown in USDT and the rate entry itself is not shown', async () => {
+	const out = join(world.root, 'site-usdt');
+	await buildSite({
+		dataRoot: world.data,
+		config: configFor(['kraken'], true),
+		outDir: out,
+		now: NOW,
+	});
+	const latest = readJson(join(out, 'latest.json')) as {
+		quote: string;
+		coins: Record<string, { price: number }>;
+	};
+	assert.equal(latest.quote, 'USDT');
+	assert.deepEqual(
+		Object.keys(latest.coins),
+		shownCoins().map((coin) => coin.id)
+	);
+	assert.equal(readdirSync(join(out, 'coins')).length, 30);
+	assert.ok(!existsSync(join(out, 'coins', 'USDT.7d.json')));
+
+	// The made-up Kraken rate stays between these two values, and a USDT price is the USD price divided by it
+	const rates = numbers('USDT', 'kr');
+	const low = Math.min(...rates);
+	const high = Math.max(...rates);
+	assert.ok(low > 0.998 && high < 0.9995, `${low} ${high}`);
+	for (const coin of shownCoins()) {
+		const usd = numbers(coin.id, 'kr');
+		const seven = readJson(join(out, 'coins', `${coin.id}.7d.json`)) as {
+			p: number[];
+		};
+		assert.equal(seven.p.length, TICKS);
+		for (const [index, price] of seven.p.entries()) {
+			const base = usd[index] ?? 0;
+			assert.ok(
+				price >= (base / high) * 0.999999 &&
+					price <= (base / low) * 1.000001,
+				`${coin.id} point ${index}`
+			);
+		}
+		assert.equal(latest.coins[coin.id]?.price, seven.p.at(-1));
+	}
 });
 
 test('the workflow commands build the page: copy the site, then run the builder from a workspace', () => {

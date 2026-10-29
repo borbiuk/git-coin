@@ -84,6 +84,7 @@ const KRAKEN_KEYS: Record<string, string> = {
 	XRPUSD: 'XXRPZUSD',
 	XLMUSD: 'XXLMZUSD',
 	LTCUSD: 'XLTCZUSD',
+	USDTUSD: 'USDTZUSD',
 };
 
 // Made-up base prices. Small coins get 8 decimals, so the byte-for-byte rule is tested on long strings.
@@ -98,6 +99,7 @@ const BASE_PRICE: Record<string, number> = {
 	ADA: 0.45,
 	XLM: 0.11,
 	LTC: 80.2,
+	USDT: 0.9988,
 };
 
 // Each source sits a little off the others, like real venues.

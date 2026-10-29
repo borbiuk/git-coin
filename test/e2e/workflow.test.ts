@@ -116,7 +116,7 @@ test('the collect step of the workflow runs the real command line in the real la
 
 	assert.equal(
 		readFileSync(output, 'utf8'),
-		'should_publish=false\nrows_written=40\n'
+		'should_publish=false\nrows_written=44\n'
 	);
 	assertInSync(world.data, world.dataRemote, 'data');
 	assert.equal(remoteCount(world.dataRemote, 'data'), 2);

@@ -48,6 +48,8 @@ export interface AlertDefaults {
 export interface CoinConfig {
 	id: string;
 	name: string;
+	/** A `rate` entry is not shown on the dashboard. Its USD price turns the other prices into its own unit (USDT). */
+	role?: 'rate';
 	enabled: boolean;
 	added: string;
 	sources: CoinSources;
@@ -170,7 +172,8 @@ export interface PeriodStats {
 }
 export interface DerivedLatest {
 	generated_at: string;
-	quote: 'USD';
+	/** The unit of every price in the derived files: the id of the rate entry (`USDT`) when the config has one, else `USD`. */
+	quote: string;
 	src: SrcCode;
 	coins: Record<
 		string,

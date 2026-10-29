@@ -531,3 +531,59 @@ test('the CLI exits with 1 and a message on a missing argument or a bad config',
 	assert.equal(bad.status, 1);
 	assert.match(bad.stderr, /config/i);
 });
+
+test('an enabled rate entry converts the prices, is not shown, and a disabled one leaves USD', async () => {
+	await writeDay(root, 'BTC', '2026-10-28', [
+		'2026-10-28T12:00:00Z,200,kr,',
+		'2026-10-28T13:00:00Z,300,kr,',
+	]);
+	await writeDay(root, 'USDT', '2026-10-28', [
+		'2026-10-28T12:00:00Z,0.5,kr,',
+		'2026-10-28T13:00:00Z,0.75,kr,',
+	]);
+	const config = await loadFixtureConfig();
+	config.coins.push({
+		id: 'USDT',
+		name: 'Tether',
+		role: 'rate',
+		enabled: true,
+		added: '2026-10-28',
+		sources: { kraken_pair: 'USDTUSD' },
+		alerts: { enabled: false },
+	});
+	await buildSite({ dataRoot: root, config, outDir: out, now: NOW });
+	const latest = await readOut<{
+		quote: string;
+		coins: Record<string, { price: number }>;
+	}>('latest.json');
+	assert.equal(latest.quote, 'USDT');
+	assert.equal(latest.coins.BTC?.price, 400);
+	assert.equal(latest.coins.USDT, undefined);
+	assert.deepEqual(await readOut('coins/BTC.7d.json'), {
+		coin: 'BTC',
+		src: 'kr',
+		t: [epoch('2026-10-28T12:00:00Z'), epoch('2026-10-28T13:00:00Z')],
+		p: [400, 400],
+	});
+	assert.ok(
+		!(await readdir(join(out, 'coins'))).some((name) =>
+			name.startsWith('USDT')
+		)
+	);
+
+	const off = join(root, 'out-usd');
+	for (const coin of config.coins) {
+		if (coin.role === 'rate') {
+			coin.enabled = false;
+		}
+	}
+	await buildSite({ dataRoot: root, config, outDir: off, now: NOW });
+	const usd = JSON.parse(
+		await readFile(join(off, 'latest.json'), 'utf8')
+	) as {
+		quote: string;
+		coins: Record<string, { price: number }>;
+	};
+	assert.equal(usd.quote, 'USD');
+	assert.equal(usd.coins.BTC?.price, 300);
+});

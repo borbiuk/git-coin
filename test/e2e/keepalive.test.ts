@@ -37,7 +37,7 @@ test('a stale shallow main gets one empty bot commit, and the data run is not af
 	const options = { keepalive: { mainDir: world.code, maxAgeDays: 30 } };
 
 	const result = await runAt(world, T0, options);
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assert.ok(world.logs.includes('keepalive: pushed an empty commit to main'));
 
 	assert.equal(remoteCount(world.mainRemote, 'main'), 2);
@@ -57,7 +57,7 @@ test('a stale shallow main gets one empty bot commit, and the data run is not af
 	// The next tick: main is fresh now, so no second commit
 	world.logs.length = 0;
 	const again = await runAt(world, plusMinutes(T0, 15), options);
-	assert.equal(again.rowsWritten, 40);
+	assert.equal(again.rowsWritten, 44);
 	assert.ok(world.logs.includes('keepalive: not needed'));
 	assert.equal(remoteCount(world.mainRemote, 'main'), 2);
 });
@@ -98,7 +98,7 @@ test('a rejected keepalive push is logged, the local commit is removed, and the 
 		keepalive: { mainDir: world.code, maxAgeDays: 30 },
 	});
 	assert.equal(result.exitCode, 0);
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assert.ok(
 		world.logs.some((line) =>
 			line.startsWith('keepalive: failed: Error: git push failed')

@@ -39,7 +39,7 @@ test('production: one source is stored, publishing follows the 30 minute rule', 
 		const result = await runAt(world, plusMinutes(T0, run * 15), {
 			issueClient: world.issues.client,
 		});
-		assert.equal(result.rowsWritten, 10);
+		assert.equal(result.rowsWritten, 11);
 		flags.push(result.shouldPublish);
 	}
 	// A publish at 0 minutes, none at 15, one at 30, none at 45, one at 60, none at 75
@@ -98,7 +98,7 @@ test('production: a sharp move opens one Issue, the alert state is its own commi
 	const [state, data] = remoteLog(world.dataRemote, 'data');
 	assert.equal(state?.subject, 'state: alerts 2026-10-29T11:18Z');
 	assert.equal(state?.name, 'github-actions[bot]');
-	assert.match(data?.subject ?? '', /^data: 2026-10-29T11:18Z 10 rows$/);
+	assert.match(data?.subject ?? '', /^data: 2026-10-29T11:18Z 11 rows$/);
 	const saved = JSON.parse(
 		remoteShow(world.dataRemote, 'data', 'state/alerts.json')
 	) as {

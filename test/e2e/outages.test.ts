@@ -32,7 +32,7 @@ test('one source down for five runs: the others go on, the failures are counted,
 		assert.equal(result.exitCode, 0);
 		assert.equal(
 			result.rowsWritten,
-			run >= 3 && run < 8 ? 30 : 40,
+			run >= 3 && run < 8 ? 33 : 44,
 			`run ${run}`
 		);
 		assertInSync(world.data, world.dataRemote, 'data');
@@ -78,7 +78,7 @@ test('every kind of failure is told apart in the log, the status and the rows', 
 	assert.deepEqual(result, {
 		exitCode: 0,
 		shouldPublish: false,
-		rowsWritten: 9,
+		rowsWritten: 10,
 	});
 
 	const lines = [...readLogLines(world.data).values()].flat().slice(1);
@@ -96,7 +96,7 @@ test('every kind of failure is told apart in the log, the status and the rows', 
 	);
 	assert.match(
 		lines.find((line) => line.includes(',cm,')) ?? '',
-		/,cm,200,\d+,9,unmapped$/
+		/,cm,200,\d+,10,unmapped$/
 	);
 
 	const status = readStatus(world.data);
@@ -124,7 +124,7 @@ test('a source that gets one wrong-shaped answer does not spoil the next run', a
 	await runAt(world, T0);
 	world.market.down.clear();
 	const result = await runAt(world, plusMinutes(T0, 15));
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assert.equal(readStatus(world.data).sources.kr?.failures_by_error.parse, 1);
 });
 
@@ -194,7 +194,7 @@ test('production: one no data Issue after four failed runs, none after more, clo
 
 	world.market.down.clear();
 	const back = await runAt(world, plusMinutes(T0, 6 * 15), options);
-	assert.equal(back.rowsWritten, 10);
+	assert.equal(back.rowsWritten, 11);
 	assert.deepEqual(world.issues.closed, [1]);
 	assert.equal(readStatus(world.data).consecutive_failures, 0);
 	assert.equal(world.issues.created.length, 1);

@@ -9,6 +9,7 @@ import {
 	NINETY_DAYS_SECONDS,
 	PERIODS,
 	SEVEN_DAYS_SECONDS,
+	convertSamples,
 	dailyCandles,
 	emptyPoints,
 	hourlyPoints,
@@ -50,18 +51,35 @@ export async function buildSite(opts: {
 
 	const reader = createSeriesReader(dataRoot);
 	const firstDay = await findFirstDay(dataRoot);
+	// An enabled rate entry (USDT) is not shown: its USD price converts every other price
+	const rateCoin = config.coins.find(
+		(coin) => coin.role === 'rate' && coin.enabled
+	);
 	const latest: DerivedLatest = {
 		generated_at: generatedAt,
-		quote: 'USD',
+		quote: rateCoin?.id ?? 'USD',
 		src,
 		coins: {},
 	};
+	const rates =
+		rateCoin === undefined || firstDay === null
+			? []
+			: await loadSamples(
+					reader,
+					rateCoin.id,
+					`${firstDay}T00:00:00Z`,
+					now,
+					src
+				);
 
 	for (const coin of config.coins) {
 		if (!SAFE_COIN_ID.test(coin.id)) {
 			throw new Error(`Coin id is not safe for a file name: ${coin.id}`);
 		}
-		const samples =
+		if (coin.role === 'rate') {
+			continue;
+		}
+		const loaded =
 			firstDay === null
 				? []
 				: await loadSamples(
@@ -71,6 +89,8 @@ export async function buildSite(opts: {
 						now,
 						src
 					);
+		const samples =
+			rateCoin === undefined ? loaded : convertSamples(loaded, rates);
 		// A disabled coin with no rows has nothing to show; a disabled coin with rows stays as an archive
 		if (samples.length === 0 && !coin.enabled) {
 			continue;

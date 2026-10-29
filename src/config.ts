@@ -419,6 +419,7 @@ function coin(
 	const obj = object(value, path, [
 		'id',
 		'name',
+		'role',
 		'enabled',
 		'added',
 		'sources',
@@ -437,8 +438,17 @@ function coin(
 		added,
 		sources: coinSources(required(obj, 'sources', path), `${path}.sources`),
 	};
+	if ('role' in obj) {
+		if (obj.role !== 'rate') {
+			fail(`${path}.role`, 'must be "rate"');
+		}
+		result.role = 'rate';
+	}
 	if ('alerts' in obj) {
 		result.alerts = alertOverrides(obj.alerts, `${path}.alerts`, defaults);
+	}
+	if (result.role === 'rate' && result.alerts?.enabled !== false) {
+		fail(`${path}.alerts`, 'a rate entry must set "enabled" to false');
 	}
 	if ('note' in obj) {
 		if (typeof obj.note !== 'string') {
@@ -466,6 +476,10 @@ function parseConfig(raw: unknown): Config {
 	const coins = (coinsValue as unknown[]).map((item, index) =>
 		coin(item, `config.coins[${index}]`, parsedSettings.alert_defaults)
 	);
+
+	if (coins.filter((item) => item.role === 'rate').length > 1) {
+		fail('config.coins', 'only one entry can have the role "rate"');
+	}
 
 	const seen = new Set<string>();
 	for (const item of coins) {

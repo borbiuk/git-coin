@@ -24,6 +24,27 @@ test('formatPrice picks the precision from the size of the price', () => {
 	assert.equal(lib.formatPrice(0.00123456), '$0.001235');
 });
 
+test('with the unit USDT, formatPrice puts the unit name after the number and the axis has none', () => {
+	lib.setQuote('USDT');
+	try {
+		assert.equal(lib.quoteName(), 'USDT');
+		assert.equal(lib.formatPrice(47349.8), '47,349.80 USDT');
+		assert.equal(lib.formatPrice(0.22325), '0.2233 USDT');
+		assert.equal(lib.formatAxisPrice(47349.8), '47,350');
+		assert.equal(lib.formatAxisPrice(2.5), '2.50');
+		assert.match(
+			lib.summarizeSeries('BTC', '7d', { t: [1], p: [1] }),
+			/^Price chart of BTC in USDT, /
+		);
+	} finally {
+		lib.setQuote('USD');
+	}
+	assert.equal(lib.quoteName(), 'US dollars');
+	assert.equal(lib.formatPrice(2.5), '$2.50');
+	lib.setQuote(undefined);
+	assert.equal(lib.formatPrice(2.5), '$2.50');
+});
+
 test('formatPrice shows a dash for a missing or invalid value', () => {
 	assert.equal(lib.formatPrice(null), '–');
 	assert.equal(lib.formatPrice(undefined), '–');

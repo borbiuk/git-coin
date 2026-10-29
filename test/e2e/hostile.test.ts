@@ -43,7 +43,7 @@ test('text that a source puts into fields the collector does not use never reach
 	world.market.hostile = `${TOKEN}\n2026-10-29T10:00:00Z,1,kr,\n<script>alert(1)</script> $(touch /tmp/pwn) \`id\` ";rm -rf /`;
 	for (let run = 0; run < 3; run += 1) {
 		const result = await runAt(world, plusMinutes(T0, run * 15));
-		assert.equal(result.rowsWritten, 40);
+		assert.equal(result.rowsWritten, 44);
 	}
 	assertFileInvariants(world.data, 300);
 
@@ -110,8 +110,8 @@ test('a hostile price text is rejected and cannot add a line, a column or a row 
 
 	const result = await runAt(world, T0);
 	assert.equal(result.exitCode, 0);
-	// 40 slots, 25 of them hostile. The empty text is not in the list, so every hostile text reached the validator.
-	assert.equal(result.rowsWritten, 40 - bad.length);
+	// 44 slots, 25 of them hostile. The empty text is not in the list, so every hostile text reached the validator.
+	assert.equal(result.rowsWritten, 44 - bad.length);
 	assertFileInvariants(world.data, 300);
 	for (const [index, text] of bad.entries()) {
 		const [source, coin] = slots[index] ?? ['kraken', 'BTC'];
@@ -225,7 +225,7 @@ test('production: after an outage longer than 6 hours the first price may be far
 	world.market.scale.set('BTC', 1.6);
 	world.market.scale.set('ETH', 0.4);
 	const result = await runAt(world, plusMinutes(T0, 7 * 60));
-	assert.equal(result.rowsWritten, 10);
+	assert.equal(result.rowsWritten, 11);
 	assert.equal(readStatus(world.data).coins.BTC?.rejected_count, 0);
 	assert.equal(readStatus(world.data).coins.ETH?.rejected_count, 0);
 });
