@@ -64,7 +64,7 @@ The repo is public and runs a scheduled bot with write access. Nothing in the de
 ### D3. Action pinning and updates
 
 - Use only `actions/checkout`, `actions/upload-pages-artifact` and `actions/deploy-pages`. Pin each by full SHA with the version in a comment.
-- `.github/dependabot.yml`: ecosystem `github-actions` weekly; ecosystem `npm` (dev dependencies in `package.json`) monthly. `check-jsonschema` is run with a pinned version in CI, so Dependabot does not update it. Bump it by hand. Keep the default cooldown.
+- `.github/dependabot.yml`: ecosystem `github-actions` weekly; ecosystem `npm` (dev dependencies in `package.json`) also weekly, with a 7-day cooldown, as in Hyperfriend (ADR 0003 Revision 2). `check-jsonschema` is run with a pinned version in CI, so Dependabot does not update it. Bump it by hand.
 - Enable the repo setting that requires actions to be pinned to a full SHA.
 - CI runs `actionlint` and `zizmor` on the workflow files.
 - When Node or runner images change (for example the end of the Node 20 removal and the `ubuntu-latest` change on 2026-11-19), Dependabot PRs and a manual `workflow_dispatch` dry run check the result.
