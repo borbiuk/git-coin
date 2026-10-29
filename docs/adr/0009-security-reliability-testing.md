@@ -43,12 +43,12 @@ The repo is public and runs a scheduled bot with write access. Nothing in the de
 
 ### D1. Workflow permissions (least privilege)
 
-| Workflow / job                              | Permissions                                                                                         |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `collect.yml` top level                     | `permissions: {}`                                                                                   |
-| job `collect`                               | `contents: write` (push to `data`, keepalive commit on `main`), `issues: write` (alerts and labels) |
-| job `publish`                               | `contents: read`, `pages: write`, `id-token: write`                                                 |
-| `ci.yml` (pull requests and push to `main`) | `contents: read`                                                                                    |
+| Workflow / job                                 | Permissions                                                                                         |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `collect.yml` top level                        | `permissions: {}`                                                                                   |
+| job `collect`                                  | `contents: write` (push to `data`, keepalive commit on `main`), `issues: write` (alerts and labels) |
+| job `publish`                                  | `contents: read`, `pages: write`, `id-token: write`                                                 |
+| `build.yml` (pull requests and push to `main`) | `contents: read`                                                                                    |
 
 - No other scopes. No `actions: write`, no `pull-requests: write`.
 - `persist-credentials: true` only on the checkouts that push. Other checkouts use `false`.

@@ -80,7 +80,7 @@ Sizes were measured on the minified single-file builds from jsDelivr with `gzip 
 ```text
 data/status.json            last point time, last run, failures, last publish, per-coin status
 data/latest.json            latest price, 24h / 7d / 30d change, high and low per period, per coin
-data/alerts.json            last 10 alerts (coin, time, direction, Issue number)
+data/alerts.json            last 10 alerts (coin, time, direction, severity, Issue number); severity is `high` (the Issue label `warning`) or `extreme` (`critical`)
 data/coins/<ID>.7d.json     last 7 days at full resolution
 data/coins/<ID>.90d.json    last 90 days, hourly last-price points
 data/coins/<ID>.daily.json  all history, daily open/high/low/close

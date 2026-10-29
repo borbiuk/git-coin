@@ -119,10 +119,10 @@ One workflow file `collect.yml` on the default branch:
 - Guard on every job: `if: github.repository == 'borbiuk/git-coin'` (forks).
 - Job `collect` (`timeout-minutes: 10`, normally under 60 seconds):
     1. Checkout `main` (shallow) to `code/`. Checkout `data` (shallow) to `data/` with credentials kept for the push.
-    2. Run the collector (fetch, cross-check, validate, append rows, update `state/status.json`).
-    3. Run the alert step (ADR 0006). It may create or comment on Issues.
-    4. Check the append-only guard, commit on `data`, push with up to 3 retries (ADR 0004).
-    5. Set a job output `should_publish` if the last publish was 30 minutes ago or more (from `status.json`).
+    2. Run the collector (fetch the sources in parallel, validate, append rows and the request log, update `state/status.json`). The collector is `src/collect.ts` (CLI in `docs/implementation/plan.md`, section 3.4).
+    3. Check the append-only guard, commit on `data`, push with up to 3 retries (ADR 0004). A rejected push redoes the append and the commit message is built after the last write.
+    4. After the data push, run the alert step (ADR 0006) and the `no data` Issue sync. They may create or comment on Issues. The alert state goes into its own commit `state: alerts <ts>`, only when it changed. A failure here never blocks the price commit (Issue calls inside the retried write could be doubled, so they come after the push).
+    5. Set a job output `should_publish` if the last publish was 30 minutes ago or more (from `status.json`), the phase is production and `features.publish` is on.
 - Job `publish` (`needs: collect`, only if `should_publish`; `permissions: contents: read, pages: write, id-token: write`; `environment: github-pages`): build the site data from `data` (ADR 0008), upload the Pages artifact, deploy.
 - Pages is deployed inside the same workflow. A push made with `GITHUB_TOKEN` does not trigger other workflows (docs: "events triggered by the `GITHUB_TOKEN` will not create a new workflow run", with `workflow_dispatch` and `repository_dispatch` as exceptions) and does not trigger a Pages build ("Commits pushed by a GitHub Actions workflow that uses the `GITHUB_TOKEN` do not trigger a GitHub Pages build"). So a separate push-triggered deploy would never fire. [A]
 - The Pages setting must be "GitHub Actions" as the source. The `github-pages` environment default rule allows the default branch, and scheduled runs run on the default branch. [A]

@@ -12,6 +12,11 @@ node_modules/
 # macOS
 .DS_Store
 
+# secrets and keys (ADR 0001: never commit these)
+.env*
+*.pem
+*.key
+
 # logs
 npm-debug.log
 
