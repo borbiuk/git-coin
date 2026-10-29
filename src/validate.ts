@@ -4,6 +4,7 @@
 import type { Phase, PriceRow } from './types.ts';
 
 const DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+const DEFAULT_MAX_STEP_AGE_SECONDS = 6 * 60 * 60;
 const MAX_PRICE_EXCLUSIVE = 1_000_000_000;
 
 type PriceCheck = { ok: true; value: number } | { ok: false; reason: string };
@@ -49,6 +50,10 @@ export function validateRow(
 		phase: Phase;
 		previous: number | null;
 		crosscheck?: number | null;
+		/** Age of `previous` in seconds. The step check runs only when it is known and at most `maxStepAgeSeconds`. */
+		previousAgeSeconds?: number | null;
+		/** Default 21600 (6 hours). */
+		maxStepAgeSeconds?: number;
 		maxStepPercent: number;
 		crosscheckMaxDiffPercent: number;
 	}
@@ -69,7 +74,12 @@ export function validateRow(
 		return { ok: false, reason: 'crosscheck_diff' };
 	}
 
+	const maxAge = ctx.maxStepAgeSeconds ?? DEFAULT_MAX_STEP_AGE_SECONDS;
+	const age = ctx.previousAgeSeconds;
+	const previousIsFresh =
+		typeof age === 'number' && Number.isFinite(age) && age <= maxAge;
 	if (
+		previousIsFresh &&
 		usable(ctx.previous) &&
 		diffPercent(price.value, ctx.previous) > ctx.maxStepPercent &&
 		!agrees

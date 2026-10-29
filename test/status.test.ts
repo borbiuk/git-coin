@@ -32,6 +32,7 @@ function source(
 		coins?: string[];
 		rejected?: Array<{ coin: string; reason: string }>;
 		missing?: string[];
+		skipped?: number;
 	} = {}
 ): RunSummary['sources'][number] {
 	const coins = opts.coins ?? [];
@@ -47,6 +48,7 @@ function source(
 		written: coins.map((coin) => priceRow(coin, src)),
 		rejected: opts.rejected ?? [],
 		missingCoins: opts.missing ?? [],
+		...(opts.skipped === undefined ? {} : { skipped: opts.skipped }),
 	};
 }
 
@@ -395,4 +397,67 @@ test('readStatus throws on a file that is not valid status JSON', async () => {
 		await writeFile(path, '[]', 'utf8');
 		await assert.rejects(readStatus(path), /unexpected shape/);
 	});
+});
+
+test('a run that only skipped rows is idle and keeps the failure streak', () => {
+	let status = emptyStatus('test');
+	status = applyRun(status, failedRun(), minutes(0));
+	status = applyRun(status, failedRun(), minutes(1));
+	const before = status.last_point_at;
+	const idle = run([source('kr', { skipped: 10 })]);
+	status = applyRun(status, idle, minutes(2));
+	assert.equal(status.consecutive_failures, 2);
+	assert.equal(status.last_point_at, before);
+	assert.equal(status.last_run_at, '2026-10-29T14:05:12Z');
+	assert.equal(status.sources.kr?.requests, 3);
+	assert.equal(status.sources.kr?.consecutive_failures, 0);
+});
+
+test('many idle runs never reach the no data limit', () => {
+	let status = applyRun(
+		emptyStatus('test'),
+		run([source('kr', { coins: ['BTC'] })]),
+		T0
+	);
+	for (let i = 1; i <= 6; i += 1) {
+		status = applyRun(
+			status,
+			run([source('kr', { skipped: 10 })]),
+			minutes(i)
+		);
+	}
+	assert.equal(status.consecutive_failures, 0);
+	assert.equal(needsNoDataIssue(status), false);
+	assert.equal(status.last_point_at, T0_ISO);
+});
+
+test('an error run with skipped rows is still a failure', () => {
+	const status = applyRun(
+		emptyStatus('test'),
+		run([source('kr', { skipped: 5 }), source('cb', { error: 'timeout' })]),
+		T0
+	);
+	assert.equal(status.consecutive_failures, 1);
+});
+
+test('skipped: 0 or no field keeps the old failure behaviour', () => {
+	let status = applyRun(
+		emptyStatus('test'),
+		run([source('kr', { skipped: 0 })]),
+		T0
+	);
+	assert.equal(status.consecutive_failures, 1);
+	status = applyRun(status, run([source('kr')]), minutes(1));
+	assert.equal(status.consecutive_failures, 2);
+});
+
+test('a run with written rows and skipped rows is a success', () => {
+	let status = applyRun(emptyStatus('test'), failedRun(), T0);
+	status = applyRun(
+		status,
+		run([source('kr', { coins: ['BTC'], skipped: 9 })]),
+		minutes(1)
+	);
+	assert.equal(status.consecutive_failures, 0);
+	assert.equal(status.last_point_at, '2026-10-29T14:04:12Z');
 });
