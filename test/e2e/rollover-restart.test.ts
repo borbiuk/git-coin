@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { appendRequestLog, appendRows } from '../../src/csv.ts';
+import { appendOnlyGuard } from '../../src/gitdata.ts';
 import type { PriceRow } from '../../src/types.ts';
 
 import {
@@ -17,7 +18,7 @@ import {
 	readPriceFiles,
 	readStatus,
 	remoteCount,
-	remoteTip,
+	remoteShow,
 	rowsOf,
 	runAt,
 } from './harness.ts';
@@ -122,27 +123,46 @@ test('a restart inside min_spacing adds no row and no double. The boundary is ex
 	assert.equal(status.sources.kr?.requests, 4);
 });
 
-// ADR 0004 D2 and D3. A re-run that finds the rows already stored is not a failed run.
-test(
-	'D-A9-1: a run whose rows were all skipped for spacing does not raise consecutive_failures',
-	{ todo: 'defect D-01 in the QA report' },
-	async () => {
-		const world = await makeWorld();
-		await runAt(world, T0);
-		await runAt(world, plusMinutes(T0, 1));
-		await runAt(world, plusMinutes(T0, 2));
-		assert.equal(readStatus(world.data).consecutive_failures, 0);
-	}
-);
-
-test('characterisation: four quick restarts raise the streak to the no data limit although data is fine', async () => {
+// ADR 0004 D2 and D3 (defect D-01, fixed). A re-run that finds the rows already stored is idle:
+// it is not a failure, and it is not a success either.
+test('a run whose rows were all skipped for spacing is idle: the streak and the last point do not move', async () => {
 	const world = await makeWorld();
 	await runAt(world, T0);
 	for (let minute = 1; minute <= 4; minute += 1) {
-		await runAt(world, plusMinutes(T0, minute));
+		const result = await runAt(world, plusMinutes(T0, minute));
+		assert.equal(result.rowsWritten, 0);
+		const status = readStatus(world.data);
+		assert.equal(status.consecutive_failures, 0, `restart ${minute}`);
+		assert.equal(
+			status.last_point_at,
+			T0,
+			'an idle run is not a new point'
+		);
+		assert.equal(status.last_run_at, plusMinutes(T0, minute));
 	}
-	// This documents defect D-01. If it is fixed, this test must change to expect 0.
-	assert.equal(readStatus(world.data).consecutive_failures, 4);
+	// The request counters still count every run
+	assert.equal(readStatus(world.data).sources.kr?.requests, 5);
+});
+
+test('idle runs do not hide a real failure: the streak counts runs that wrote nothing because the sources failed', async () => {
+	const world = await makeWorld();
+	await runAt(world, T0);
+	await runAt(world, plusMinutes(T0, 1));
+	for (const source of [
+		'kraken',
+		'coinbase',
+		'bitstamp',
+		'coinmetrics',
+	] as const) {
+		world.market.down.set(source, 'timeout');
+	}
+	await runAt(world, plusMinutes(T0, 15));
+	await runAt(world, plusMinutes(T0, 16));
+	assert.equal(readStatus(world.data).consecutive_failures, 2);
+	// One healthy run resets it
+	world.market.down.clear();
+	await runAt(world, plusMinutes(T0, 30));
+	assert.equal(readStatus(world.data).consecutive_failures, 0);
 });
 
 test('a run that died after writing leaves rows in the working tree. The next run commits them once', async () => {
@@ -191,27 +211,55 @@ async function worldWithHalfLine(): Promise<
 	return world;
 }
 
-test('characterisation: a committed half line stops every later run at the append-only guard and pushes nothing', async () => {
+// Defect D-03, fixed: the guard accepts a half line that is only closed by a line break.
+test('a committed half line is closed with a line break, kept as it is, and the new rows follow it', async () => {
 	const world = await worldWithHalfLine();
-	const tip = remoteTip(world.dataRemote, 'data');
-	const result = await runAt(world, plusMinutes(T0, 15));
-	// This documents defect D-03: the guard fails safe, but the run cannot recover by itself.
-	assert.equal(result.exitCode, 1);
-	assert.equal(remoteTip(world.dataRemote, 'data'), tip);
-	assert.ok(
-		world.logs.some((line) =>
-			line.includes('Append-only guard failed: 1 deleted lines')
-		)
+	const before = remoteShow(
+		world.dataRemote,
+		'data',
+		'data/raw/2026/10/29/BTC.csv'
 	);
+	assert.ok(!before.endsWith('\n'));
+	const result = await runAt(world, plusMinutes(T0, 15));
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.rowsWritten, 40);
+	assertInSync(world.data, world.dataRemote, 'data');
+
+	const after = remoteShow(
+		world.dataRemote,
+		'data',
+		'data/raw/2026/10/29/BTC.csv'
+	);
+	// The old bytes are untouched. Only a line break and the new rows were added.
+	assert.ok(after.startsWith(`${before}\n`));
+	const lines = after.split('\n');
+	assert.equal(lines.filter((line) => line === '2026-10-29T10:1').length, 1);
+	assert.equal(lines.at(-1), '');
+	// The half line is still one malformed line, and every other line is a row
+	assert.equal(rowsOf(world.data, 'BTC').length, 8 + 1);
+	assert.ok(world.logs.every((line) => !line.includes('Append-only guard')));
 });
 
-test(
-	'D-03: a committed half line is closed with a line break and the new rows follow it',
-	{ todo: 'defect D-03 in the QA report' },
-	async () => {
-		const world = await worldWithHalfLine();
-		const result = await runAt(world, plusMinutes(T0, 15));
-		assert.equal(result.exitCode, 0);
-		assert.equal(result.rowsWritten, 40);
-	}
-);
+test('the guard still stops a real change of a line in a file that has a half line, and a line added to the half line', async () => {
+	const world = await worldWithHalfLine();
+	const file = join(world.data, 'data/raw/2026/10/29/BTC.csv');
+	const original = readFileSync(file, 'utf8');
+
+	// A rewritten price is not an append
+	writeFileSync(
+		file,
+		original.replace(/^(2026-10-29T10:03:12Z),[^,]+,kr/m, '$1,2.00,kr')
+	);
+	assert.deepEqual(await appendOnlyGuard(world.data), {
+		ok: false,
+		deleted: 1,
+	});
+
+	// Text that continues the half line (no line break first) changes that line
+	writeFileSync(file, `${original}5:00Z,1.00,kr,\n`);
+	assert.equal((await appendOnlyGuard(world.data)).ok, false);
+
+	// Closing it with a line break and adding a row is an append
+	writeFileSync(file, `${original}\n2026-10-29T10:15:00Z,1.00,kr,\n`);
+	assert.equal((await appendOnlyGuard(world.data)).ok, true);
+});

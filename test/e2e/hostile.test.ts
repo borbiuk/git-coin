@@ -169,18 +169,63 @@ test('production: a 60 percent jump is rejected without a cross-check, so it can
 	assert.deepEqual(world.issues.created, []);
 });
 
-test('characterisation: a real, lasting 60 percent move is rejected on every run, because no cross-check is ever supplied', async () => {
-	const world = await makeWorld({
+// Defect D-06, fixed: the step check applies only when the previous stored row is at most 6 hours old.
+function productionKraken(): ReturnType<typeof makeWorld> {
+	return makeWorld({
 		patch: (config) => {
 			config.settings.phase = 'production';
 			config.settings.stored_sources = ['kraken'];
 		},
 	});
-	for (let run = 0; run < 6; run += 1) {
-		world.market.scale.set('BTC', run >= 2 ? 1.6 : 1);
+}
+
+test('production: a 60 percent jump after a young row is rejected once, and the next normal price is accepted', async () => {
+	const world = await productionKraken();
+	for (let run = 0; run < 5; run += 1) {
+		world.market.scale.set('BTC', run === 3 ? 1.6 : 1);
 		await runAt(world, plusMinutes(T0, run * 15));
 	}
-	// This documents defect D-06: the last stored price never moves, so the new level is never accepted.
+	// Runs 0, 1, 2 and 4 are stored. Run 3 is rejected and does not block run 4.
+	assert.equal(rowsOf(world.data, 'BTC').length, 4);
+	const btc = readStatus(world.data).coins.BTC;
+	assert.equal(btc?.rejected_count, 1);
+	assert.equal(btc?.last_reject_reason, 'step_no_crosscheck');
+	assert.equal(btc?.status, 'ok');
+	// Other coins were not touched by it
+	assert.equal(rowsOf(world.data, 'ETH').length, 5);
+});
+
+test('production: a lasting 60 percent move is rejected while the last row is at most 6 hours old, then accepted, and runs go on', async () => {
+	const world = await productionKraken();
+	await runAt(world, T0);
+	world.market.scale.set('BTC', 1.6);
+	// 2, 4 and exactly 6 hours later: the previous row is 6 hours old or less, so the jump is still rejected
+	for (const hours of [2, 4, 6]) {
+		await runAt(world, plusMinutes(T0, hours * 60));
+		assert.equal(rowsOf(world.data, 'BTC').length, 1, `${hours} h`);
+	}
+	assert.equal(readStatus(world.data).coins.BTC?.rejected_count, 3);
+	// 8 hours later the last row is older than 6 hours: no step check, the new level is stored
+	await runAt(world, plusMinutes(T0, 8 * 60));
 	assert.equal(rowsOf(world.data, 'BTC').length, 2);
-	assert.equal(readStatus(world.data).coins.BTC?.rejected_count, 4);
+	// And the next run, 15 minutes later, compares with the new level: no stuck state, no new rejection
+	await runAt(world, plusMinutes(T0, 8 * 60 + 15));
+	const rows = rowsOf(world.data, 'BTC');
+	assert.equal(rows.length, 3);
+	const [first, second, third] = rows.map((row) => Number(row.price));
+	assert.ok((second ?? 0) > (first ?? 0) * 1.5, 'the new level is stored');
+	assert.ok(Math.abs((third ?? 0) - (second ?? 0)) < (second ?? 0) * 0.01);
+	assert.equal(readStatus(world.data).coins.BTC?.rejected_count, 3);
+	assertFileInvariants(world.data, 300);
+});
+
+test('production: after an outage longer than 6 hours the first price may be far from the last stored one', async () => {
+	const world = await productionKraken();
+	await runAt(world, T0);
+	world.market.scale.set('BTC', 1.6);
+	world.market.scale.set('ETH', 0.4);
+	const result = await runAt(world, plusMinutes(T0, 7 * 60));
+	assert.equal(result.rowsWritten, 10);
+	assert.equal(readStatus(world.data).coins.BTC?.rejected_count, 0);
+	assert.equal(readStatus(world.data).coins.ETH?.rejected_count, 0);
 });
