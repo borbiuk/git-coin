@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "phase": "test",
+  "last_run_at": "2026-10-29T20:46:31Z",
+  "last_point_at": "2026-10-29T20:46:31Z",
+  "consecutive_failures": 0,
+  "last_publish_at": "2026-10-29T20:46:31Z",
+  "sources": {
+    "bs": {
+      "requests": 1,
+      "failures": 0,
+      "failures_by_error": {},
+      "consecutive_failures": 0,
+      "last_ok_at": "2026-10-29T20:46:31Z"
+    },
+    "cb": {
+      "requests": 1,
+      "failures": 0,
+      "failures_by_error": {},
+      "consecutive_failures": 0,
+      "last_ok_at": "2026-10-29T20:46:31Z"
+    },
+    "cm": {
+      "requests": 1,
+      "failures": 0,
+      "failures_by_error": {},
+      "consecutive_failures": 0,
+      "last_ok_at": "2026-10-29T20:46:31Z"
+    },
+    "kr": {
+      "requests": 1,
+      "failures": 0,
+      "failures_by_error": {},
+      "consecutive_failures": 0,
+      "last_ok_at": "2026-10-29T20:46:31Z"
+    }
+  },
+  "coins": {
+    "ADA": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "BNB": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "BTC": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "DOGE": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "ETH": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "LINK": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "LTC": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "SOL": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "XLM": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    },
+    "XRP": {
+      "last_point_at": "2026-10-29T20:46:31Z",
+      "status": "ok",
+      "rejected_count": 0,
+      "last_reject_reason": null
+    }
+  }
+}
