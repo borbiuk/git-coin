@@ -64,6 +64,7 @@ jobs:
                   VARIANT: ${{ inputs.variant }}
                   OWNER_LOGIN: ${{ github.repository_owner }}
               run: |
+                  set +e   # GitHub starts steps with "bash -e"; failing commands are expected here
                   set -uo pipefail
 
                   create() {

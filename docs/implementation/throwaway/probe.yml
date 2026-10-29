@@ -57,7 +57,9 @@ jobs:
                   # Scheduled runs have no inputs, so CoinGecko is on for them
                   WITH_COINGECKO: ${{ github.event_name == 'schedule' || inputs.coingecko }}
               run: |
-                  # No "set -e": one failing request must not stop the probe
+                  # GitHub starts this step with "bash -e". Turn it off: one failing request, or a grep
+                  # without a match, must not stop the probe
+                  set +e
                   set -uo pipefail
 
                   export UA='git-coin-probe (+https://github.com/borbiuk/git-coin)'
