@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+    - name: Contributing guide
+      url: https://github.com/borbiuk/git-coin/blob/main/.github/CONTRIBUTING.md
+      about: How to set up, test and send a change.
+    - name: Report a security problem
+      url: https://github.com/borbiuk/git-coin/security/advisories/new
+      about: Report a vulnerability privately. Please do not open a public issue for it.
