@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="light dark" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'"
+		/>
+		<meta
+			name="description"
+			content="USD prices of ten coins, collected on a schedule by GitHub Actions and kept in git."
+		/>
+		<title>git-coin prices</title>
+		<link rel="icon" href="data:," />
+		<link rel="stylesheet" href="vendor/uPlot.min.css" />
+		<link rel="stylesheet" href="style.css" />
+		<script src="vendor/uPlot.iife.min.js" defer></script>
+		<script type="module" src="app.js"></script>
+	</head>
+	<body>
+		<a class="skip" href="#main">Skip to the prices</a>
+		<header class="wrap">
+			<h1>git-coin</h1>
+			<p class="tagline">
+				USD prices of ten coins, collected on a schedule and kept in
+				git.
+			</p>
+		</header>
+		<main id="main" class="wrap" tabindex="-1">
+			<p class="disclaimer">
+				<strong>Not financial advice.</strong> Prices may be delayed,
+				missing or wrong. Data comes from public sources and is shown as
+				is.
+			</p>
+
+			<div id="banners" role="status"></div>
+
+			<section class="info" aria-label="Data freshness and source">
+				<p id="updated" class="updated">Loading the latest prices…</p>
+				<p id="source" class="muted"></p>
+				<p class="muted">
+					Updated about every 15 to 30 minutes when GitHub runs on
+					time. Runs can be late by hours.
+				</p>
+			</section>
+
+			<noscript>
+				<p class="notice">
+					This page needs JavaScript to show prices and the chart.
+				</p>
+			</noscript>
+
+			<div id="problem" class="notice" role="status" hidden></div>
+
+			<div
+				id="coins"
+				class="chips"
+				role="group"
+				aria-label="Choose a coin"
+			></div>
+
+			<section id="detail" aria-labelledby="detail-title" hidden>
+				<h2 id="detail-title"></h2>
+				<p id="detail-price" class="price"></p>
+				<p id="detail-asof" class="muted"></p>
+
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="Change, high and low of the selected coin"
+				>
+					<table id="stats">
+						<caption class="sr">
+							Change, high and low of the selected coin
+						</caption>
+						<thead>
+							<tr>
+								<th scope="col">Period</th>
+								<th scope="col">Change</th>
+								<th scope="col">High</th>
+								<th scope="col">Low</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+
+				<h3 class="chart-title">Price chart</h3>
+				<div
+					id="ranges"
+					class="ranges"
+					role="group"
+					aria-label="Chart range"
+				></div>
+				<div id="chart" class="chart" role="img"></div>
+				<p id="chart-status" class="muted" role="status"></p>
+			</section>
+
+			<section id="all" aria-labelledby="all-title" hidden>
+				<h2 id="all-title">All coins</h2>
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="Latest prices of all coins"
+				>
+					<table id="latest">
+						<thead>
+							<tr>
+								<th scope="col">Coin</th>
+								<th scope="col" class="num">Price</th>
+								<th scope="col" class="num">24h</th>
+								<th scope="col" class="num">7d</th>
+								<th scope="col" class="num">30d</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<p id="missing" class="muted"></p>
+			</section>
+
+			<section aria-labelledby="alerts-title">
+				<h2 id="alerts-title">Last alerts</h2>
+				<p id="alerts-empty" class="muted">No alerts yet.</p>
+				<ol id="alerts" class="alerts"></ol>
+			</section>
+		</main>
+		<footer class="wrap">
+			<p class="muted">
+				Prices are in US dollars. The code and the price history are in
+				<a href="https://github.com/borbiuk/git-coin"
+					>the GitHub repository</a
+				>. This page uses no cookies, no analytics and no third-party
+				requests.
+			</p>
+		</footer>
+	</body>
+</html>

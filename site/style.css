@@ -1,0 +1,359 @@
+/* Light colours are the default. The dark set is used when the system asks for it (ADR 0008 D6). */
+:root {
+	color-scheme: light dark;
+	--bg: #ffffff;
+	--surface: #f3f5f8;
+	--text: #15191e;
+	--muted: #4f5864;
+	--border: #c5ccd5;
+	--grid: #e2e6ec;
+	--accent: #0a58ca;
+	--on-accent: #ffffff;
+	--line: #0a58ca;
+	--up: #12662b;
+	--down: #a8201a;
+	--focus: #0a58ca;
+	--warn-bg: #fff2cf;
+	--warn-text: #4d3300;
+	--warn-border: #8a5a00;
+	--stop-bg: #fde4e1;
+	--stop-text: #6e150f;
+	--stop-border: #a8201a;
+	--font:
+		system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #0e1217;
+		--surface: #171c23;
+		--text: #e8ebef;
+		--muted: #a4adb9;
+		--border: #3a424d;
+		--grid: #2a313a;
+		--accent: #8bbcff;
+		--on-accent: #0e1217;
+		--line: #6cb0ff;
+		--up: #62d17f;
+		--down: #ff958b;
+		--focus: #8bbcff;
+		--warn-bg: #3a2c08;
+		--warn-text: #ffe1a1;
+		--warn-border: #b98a1e;
+		--stop-bg: #411612;
+		--stop-text: #ffcfca;
+		--stop-border: #d9544a;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font: 16px/1.5 var(--font);
+}
+
+.wrap {
+	max-width: 56rem;
+	margin: 0 auto;
+	padding: 0 16px;
+}
+
+main:focus {
+	outline: none;
+}
+
+h1 {
+	margin: 16px 0 0;
+	font-size: 1.5rem;
+	line-height: 1.2;
+}
+
+h2 {
+	margin: 24px 0 8px;
+	font-size: 1.25rem;
+	line-height: 1.25;
+}
+
+h3 {
+	margin: 16px 0 8px;
+	font-size: 1rem;
+}
+
+p {
+	margin: 8px 0;
+}
+
+a {
+	color: var(--accent);
+}
+
+.muted {
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.tagline {
+	margin: 4px 0 12px;
+	color: var(--muted);
+	font-size: 0.9375rem;
+}
+
+.sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.skip {
+	position: absolute;
+	left: 8px;
+	top: -100px;
+	padding: 8px 12px;
+	background: var(--accent);
+	color: var(--on-accent);
+	border-radius: 4px;
+	z-index: 10;
+}
+
+.skip:focus {
+	top: 8px;
+}
+
+:focus-visible {
+	outline: 3px solid var(--focus);
+	outline-offset: 2px;
+}
+
+/* Disclaimer: at the top, so it is visible without scrolling on a phone */
+.disclaimer {
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-left: 4px solid var(--accent);
+	border-radius: 4px;
+	font-size: 0.9375rem;
+}
+
+.banner {
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	border: 1px solid;
+	border-left-width: 4px;
+	border-radius: 4px;
+}
+
+.banner-delayed {
+	background: var(--warn-bg);
+	color: var(--warn-text);
+	border-color: var(--warn-border);
+}
+
+.banner-stopped {
+	background: var(--stop-bg);
+	color: var(--stop-text);
+	border-color: var(--stop-border);
+}
+
+.notice {
+	margin: 12px 0;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--surface);
+}
+
+.info p {
+	margin: 4px 0;
+}
+
+.updated {
+	font-weight: 600;
+}
+
+/* Coin picker and range buttons */
+.chips,
+.ranges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.chip {
+	min-width: 56px;
+	min-height: 44px;
+	padding: 0 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--on-accent);
+}
+
+.link-button {
+	min-height: 44px;
+	min-width: 44px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font: inherit;
+	font-weight: 600;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* Selected coin */
+.price {
+	margin: 4px 0;
+	font-size: 2rem;
+	font-weight: 700;
+	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
+}
+
+.table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--border);
+	text-align: left;
+	white-space: nowrap;
+}
+
+th[scope='col'] {
+	color: var(--muted);
+	font-size: 0.8125rem;
+	font-weight: 600;
+}
+
+th.num,
+td.num {
+	text-align: right;
+}
+
+#stats {
+	max-width: 36rem;
+}
+
+#latest {
+	max-width: 44rem;
+	font-size: 0.875rem;
+}
+
+#latest th,
+#latest td {
+	padding: 0 3px;
+}
+
+.arrow {
+	margin-right: 0.2em;
+	font-size: 0.8em;
+}
+
+@media (max-width: 480px) {
+	#latest {
+		font-size: 0.8125rem;
+	}
+
+	#stats {
+		font-size: 0.875rem;
+	}
+
+	#stats th,
+	#stats td {
+		padding: 4px 6px;
+	}
+}
+
+.chg {
+	font-weight: 600;
+}
+
+.chg-up {
+	color: var(--up);
+}
+
+.chg-down {
+	color: var(--down);
+}
+
+.chg-flat,
+.chg-na {
+	color: var(--muted);
+}
+
+.chart-title {
+	margin-bottom: 0;
+}
+
+.chart {
+	min-height: 240px;
+	max-width: 100%;
+}
+
+.alerts {
+	margin: 8px 0;
+	padding-left: 20px;
+}
+
+.alerts li {
+	margin: 4px 0;
+}
+
+footer {
+	margin-top: 24px;
+	padding-bottom: 24px;
+}
+
+/* uPlot sets its own colours: use ours so the chart follows the colour scheme */
+.uplot,
+.u-legend {
+	color: var(--text);
+}
+
+.u-legend {
+	font-size: 0.8125rem;
+}
+
+@media (max-width: 480px) {
+	.price {
+		font-size: 1.75rem;
+	}
+
+	.chart {
+		min-height: 220px;
+	}
+}

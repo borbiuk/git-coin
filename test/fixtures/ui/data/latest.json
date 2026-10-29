@@ -1,0 +1,45 @@
+{
+	"generated_at": "2026-10-29T12:03:00Z",
+	"quote": "USD",
+	"src": "kr",
+	"coins": {
+		"BTC": {
+			"name": "Bitcoin",
+			"price": 47349.8,
+			"ts": "2026-10-29T12:00:00Z",
+			"periods": {
+				"24h": {
+					"change_pct": 2.41,
+					"high": 47455.88,
+					"low": 46181.49
+				},
+				"7d": { "change_pct": -0.37, "high": 47834.6, "low": 45189.65 },
+				"30d": {
+					"change_pct": -2.42,
+					"high": 50446.15,
+					"low": 45189.65
+				}
+			}
+		},
+		"ETH": {
+			"name": "Ethereum",
+			"price": 3768.61,
+			"ts": "2026-10-29T12:00:00Z",
+			"periods": {
+				"24h": { "change_pct": 3.08, "high": 3774.64, "low": 3656.09 },
+				"7d": { "change_pct": 5.8, "high": 3800.14, "low": 3541.73 },
+				"30d": { "change_pct": 4.47, "high": 3800.14, "low": 3151.05 }
+			}
+		},
+		"DOGE": {
+			"name": "Dogecoin",
+			"price": 0.22325,
+			"ts": "2026-10-29T12:00:00Z",
+			"periods": {
+				"24h": { "change_pct": 2.29, "high": 0.22567, "low": 0.21693 },
+				"7d": { "change_pct": -3.35, "high": 0.24381, "low": 0.21055 },
+				"30d": { "change_pct": -18.38, "high": 0.28075, "low": 0.21055 }
+			}
+		}
+	}
+}
