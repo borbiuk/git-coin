@@ -1,0 +1,24 @@
+{
+	"schema_version": 1,
+	"keys": {
+		"BTC:down": {
+			"issue": 7,
+			"last_alert_at": "2026-10-29T08:00:00Z",
+			"last_comment_at": null,
+			"last_trigger_at": "2026-10-29T08:00:00Z",
+			"last_suppressed_at": null
+		}
+	},
+	"daily": { "day": "2026-10-29", "created": 1, "suppressed": 0 },
+	"recent": [
+		{
+			"coin": "BTC",
+			"ts": "2026-10-29T08:00:00Z",
+			"direction": "down",
+			"window": "1h",
+			"severity": "warning",
+			"issue": 7,
+			"suppressed": false
+		}
+	]
+}
