@@ -210,9 +210,9 @@ If the pilot or live data shows far fewer runs than the schedule asks, the choic
 
 ## Open Questions
 
-1. What delivery rate does a new workflow on this account get at 5, 15 and 30 minutes? (Pilot.)
+1. What delivery rate does a new workflow on this account get at 5, 15 and 30 minutes? (Pilot.) The pilot started on 2026-10-29T17:36:05Z in `borbiuk/git-coin-pilot`. Read it after 72 hours (`docs/implementation/g2-results.md`).
 2. Do bot commits (default branch, and the `data` branch) count as repository activity?
-3. Does a pending run replaced by concurrency appear as "cancelled" for a scheduled workflow?
+3. Does a pending run replaced by concurrency appear as "cancelled" for a scheduled workflow? Seen on 2026-10-29 for `workflow_dispatch` runs: three starts in a row gave one running, one cancelled and one pending run. Not yet seen for a scheduled run.
 4. Does an Issue created by `GITHUB_TOKEN` email the owner? (ADR 0006, checklist.) It decides whether the alert path works at all.
 5. If delivery stays at about 5 runs per day, does the owner want an external trigger or accept the freshness?
 6. The workflow is pinned to `ubuntu-26.04` (ADR 0003). Does the pilot show any difference in start time or delivery against `ubuntu-24.04`?

@@ -125,3 +125,17 @@
 - Pass: at least one source passes the gate. If fewer than two pass, activate the reserves in order: CoinGecko Demo, CoinMarketCap Basic, Coinranking. The owner creates the keys and secrets (ADR 0009 D2).
 - Terms: write each source's terms status next to its result (ADR 0002 Revision 2, point 9). A source with an explicit prohibition needs the owner's decision before it goes to production.
 - Done when: the owner picks one source, ADR 0002 gets a Revision 3 with the numbers, and ADR 0004, 0005, 0007, 0009 and the index are updated for that single source.
+
+## Results so far (2026-10-29)
+
+Details, tables and run links are in [g2-results.md](../implementation/g2-results.md).
+
+| Item | Status                                                                                                                                                                  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2    | Partly done: a manual run deployed Pages from a public Free-plan repo. A scheduled run is still open.                                                                   |
+| 3    | First sample done: Kraken, Coinbase, Bitstamp, Coin Metrics and CoinGecko all answered HTTP 200 with 10 of 10 coins from a real runner. Rates need the scheduled probe. |
+| 4    | Running since 2026-10-29T17:36:05Z. Read the result after 72 hours.                                                                                                     |
+| 5    | Issues created and a run failed on purpose. The owner must record which emails arrived.                                                                                 |
+| 6    | Done: all six checks behave as designed. The bot email is `41898282+github-actions[bot]@users.noreply.github.com`.                                                      |
+| 9    | Running since 2026-10-29. Read the workflow state after 61 days.                                                                                                        |
+| 12   | Runner image `ubuntu26/20261025.179.1` (and `20261026.180.1`) with Node `v24.22.1`. The pinned label `ubuntu-26.04` exists.                                             |

@@ -189,4 +189,4 @@ How to check it automatically:
 1. Does a bot commit with `GITHUB_TOKEN` count as "repository activity" for the 60-day rule? Does a commit to a non-default branch count? (Mitigation in ADR 0005. Test in the checklist.)
 2. Does GitHub tolerate a data-collecting scheduled workflow in the long run? No explicit statement exists.
 3. Should the owner accept the grey-area risk in writing, or ask GitHub Support for confirmation? (The data-terms question is decided separately. The owner asked Kraken first, then decided on 2026-10-29 to use real data in the public repo without waiting for the answer. See ADR 0002 Revision 2.)
-4. The bot's noreply email string: confirm on a GitHub docs page or by inspecting a real bot commit.
+4. The bot's noreply email string: confirm on a GitHub docs page or by inspecting a real bot commit. Answered on 2026-10-29 by a real bot commit in a throwaway repo: `github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>` (login `github-actions[bot]`, id 41898282). See `docs/implementation/g2-results.md`.

@@ -217,7 +217,7 @@ The ten coins were selected because they had USD pairs on Kraken, Coinbase and B
 ## Open Questions
 
 1. Kraken: are a public history and a public dashboard of its public ticker allowed for non-commercial use? Ask in writing. Who sends the request? (Owner.)
-2. Do Kraken, CoinGecko (keyless) and Bitstamp respond from GitHub runner IPs without 429, 403 or 451? How often?
+2. Do Kraken, CoinGecko (keyless) and Bitstamp respond from GitHub runner IPs without 429, 403 or 451? How often? First sample on 2026-10-29 from a real runner (`ubuntu-26.04`): Kraken, Coinbase, Bitstamp, Coin Metrics and keyless CoinGecko all answered HTTP 200 with all 10 coins, no block. One sample only; the scheduled probe gives the rates (`docs/implementation/g2-results.md`).
 3. Does `Ticker?pair=A,B,C` still work, and what are the exact result keys for all ten coins?
 4. Should a Bitstamp fallback be enabled after its terms are clarified?
 5. Is an unclear-terms risk acceptable at all, if the answer from Kraken is "no" or never arrives?
