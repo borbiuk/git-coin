@@ -335,7 +335,7 @@ Every agent prompt is built from: the rules in 5.1, the agent section below, and
 
 ### 5.1 Rules for every agent
 
-1. Read `docs/adr/0000-index.md`, the ADR sections named in your brief, `AGENTS.md` and sections 3 and 4 of `docs/implementation/plan.md`. Work only in your own worktree and branch `impl/<id>` (the tool makes the worktree). Run `./scripts/with-node24.sh npm ci --ignore-scripts` once.
+1. Read `docs/adr/0000-index.md`, the ADR sections named in your brief, `AGENTS.md` and sections 3 and 4 of `docs/implementation/plan.md`. Work only in your own worktree and branch (the tool makes both and names the branch; keep that name and report it). Run `./scripts/with-node24.sh npm ci --ignore-scripts` once, then `./scripts/with-node24.sh npm run prepare` (it installs the Husky hook in your worktree, so every commit is formatted).
 2. Edit only the paths you own (section 4). Do not edit ADRs, `src/types.ts`, `package.json`, config files or other agents' files. If you need a change there, do not make it: use a local workaround and write a change request in your report.
 3. Node 24.22.1 only, through `./scripts/with-node24.sh`. Erasable TypeScript, no runtime dependencies, no new dev dependencies. Format with `npm run format`. The ESLint rules apply (block `if`, import order). Match the style of the existing files. Comments only where the reason is not obvious. Simple English in code comments and commit messages.
 4. Tests use `node:test`, have no network access and use synthetic fixtures (3.5). Cover the failure paths, not only the happy path.
