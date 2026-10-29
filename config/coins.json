@@ -1,0 +1,172 @@
+{
+	"schema_version": 1,
+	"settings": {
+		"quote": "USD",
+		"stored_sources": ["kraken", "coinbase", "bitstamp", "coinmetrics"],
+		"phase": "test",
+		"features": { "alerts": false, "publish": false },
+		"min_spacing_seconds": 300,
+		"max_step_move_percent": 50,
+		"crosscheck_max_diff_percent": 2,
+		"publish_min_interval_minutes": 30,
+		"stale_warn_minutes": 120,
+		"stale_stop_minutes": 360,
+		"alert_defaults": {
+			"enabled": true,
+			"direction": "both",
+			"cooldown_hours": 6,
+			"daily_issue_cap": 5,
+			"auto_close_hours": 24,
+			"move_1h": {
+				"window_minutes": 60,
+				"threshold_percent": 5,
+				"ref_tolerance_minutes": 30
+			},
+			"move_24h": {
+				"window_minutes": 1440,
+				"threshold_percent": 15,
+				"ref_tolerance_minutes": 120
+			}
+		}
+	},
+	"coins": [
+		{
+			"id": "BTC",
+			"name": "Bitcoin",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "XBTUSD",
+				"coinbase_product": "BTC-USD",
+				"bitstamp_market": "btcusd",
+				"coinmetrics_asset": "btc",
+				"coingecko_id": "bitcoin"
+			},
+			"alerts": {
+				"move_1h": { "threshold_percent": 3 },
+				"move_24h": { "threshold_percent": 8 }
+			}
+		},
+		{
+			"id": "ETH",
+			"name": "Ethereum",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "ETHUSD",
+				"coinbase_product": "ETH-USD",
+				"bitstamp_market": "ethusd",
+				"coinmetrics_asset": "eth",
+				"coingecko_id": "ethereum"
+			},
+			"alerts": {
+				"move_1h": { "threshold_percent": 4 },
+				"move_24h": { "threshold_percent": 12 }
+			}
+		},
+		{
+			"id": "BNB",
+			"name": "BNB",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "BNBUSD",
+				"coinbase_product": "BNB-USD",
+				"bitstamp_market": "bnbusd",
+				"coinmetrics_asset": "bnb",
+				"coingecko_id": "binancecoin"
+			}
+		},
+		{
+			"id": "XRP",
+			"name": "XRP",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "XRPUSD",
+				"coinbase_product": "XRP-USD",
+				"bitstamp_market": "xrpusd",
+				"coinmetrics_asset": "xrp",
+				"coingecko_id": "ripple"
+			}
+		},
+		{
+			"id": "SOL",
+			"name": "Solana",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "SOLUSD",
+				"coinbase_product": "SOL-USD",
+				"bitstamp_market": "solusd",
+				"coinmetrics_asset": "sol",
+				"coingecko_id": "solana"
+			}
+		},
+		{
+			"id": "DOGE",
+			"name": "Dogecoin",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "XDGUSD",
+				"coinbase_product": "DOGE-USD",
+				"bitstamp_market": "dogeusd",
+				"coinmetrics_asset": "doge",
+				"coingecko_id": "dogecoin"
+			}
+		},
+		{
+			"id": "LINK",
+			"name": "Chainlink",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "LINKUSD",
+				"coinbase_product": "LINK-USD",
+				"bitstamp_market": "linkusd",
+				"coinmetrics_asset": "link",
+				"coingecko_id": "chainlink"
+			}
+		},
+		{
+			"id": "ADA",
+			"name": "Cardano",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "ADAUSD",
+				"coinbase_product": "ADA-USD",
+				"bitstamp_market": "adausd",
+				"coinmetrics_asset": "ada",
+				"coingecko_id": "cardano"
+			}
+		},
+		{
+			"id": "XLM",
+			"name": "Stellar",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "XLMUSD",
+				"coinbase_product": "XLM-USD",
+				"bitstamp_market": "xlmusd",
+				"coinmetrics_asset": "xlm",
+				"coingecko_id": "stellar"
+			}
+		},
+		{
+			"id": "LTC",
+			"name": "Litecoin",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "LTCUSD",
+				"coinbase_product": "LTC-USD",
+				"bitstamp_market": "ltcusd",
+				"coinmetrics_asset": "ltc",
+				"coingecko_id": "litecoin"
+			}
+		}
+	]
+}
