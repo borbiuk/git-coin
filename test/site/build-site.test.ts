@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 
 import { buildSite } from '../../src/build-site.ts';
+import { loadConfig } from '../../src/config.ts';
 import type { Config } from '../../src/types.ts';
 
 import {
@@ -39,7 +40,7 @@ afterEach(async () => {
 });
 
 async function loadFixtureConfig(): Promise<Config> {
-	return JSON.parse(await readFile(CONFIG_PATH, 'utf8')) as Config;
+	return loadConfig(CONFIG_PATH);
 }
 
 async function readOut<T>(name: string): Promise<T> {
@@ -322,7 +323,7 @@ test('a status file that is not valid JSON falls back to the empty status', asyn
 });
 
 test('alerts.json lists the 10 newest alerts and drops invalid entries', async () => {
-	await copyState(root, 'alerts-list.json', 'alerts.json');
+	await copyState(root, 'alerts-state.json', 'alerts.json');
 	await buildSite({
 		dataRoot: root,
 		config: await loadFixtureConfig(),
@@ -340,39 +341,94 @@ test('alerts.json lists the 10 newest alerts and drops invalid entries', async (
 	assert.equal(alerts.alerts[0].severity, 'high');
 });
 
-test('alerts.json reads per-key state entries', async () => {
-	await copyState(root, 'alerts-keys.json', 'alerts.json');
+test('alerts.json skips suppressed alerts and alerts without an Issue', async () => {
+	await copyState(root, 'alerts-state.json', 'alerts.json');
 	await buildSite({
 		dataRoot: root,
 		config: await loadFixtureConfig(),
 		outDir: out,
 		now: NOW,
 	});
-	assert.deepEqual(
-		(await readOut<{ alerts: unknown }>('alerts.json')).alerts,
-		[
-			{
-				coin: 'ETH',
-				ts: '2026-10-28T08:00:00Z',
-				direction: 'up',
-				severity: 'high',
-				issue: 22,
-			},
-			{
-				coin: 'BTC',
-				ts: '2026-10-27T08:00:00Z',
-				direction: 'down',
-				severity: 'extreme',
-				issue: 21,
-			},
-		]
+	const { alerts } = await readOut<{ alerts: Array<{ issue: number }> }>(
+		'alerts.json'
 	);
+	// Left out: the suppressed BTC alert, the SOL alert without an Issue and Issue 14 (a direction that does not exist)
+	assert.deepEqual(
+		alerts.map((alert) => alert.issue),
+		[13, 12, 11, 10, 9, 8, 7, 6, 5, 2]
+	);
+});
+
+test('alerts.json maps warning to high and critical to extreme', async () => {
+	await copyState(root, 'alerts-state.json', 'alerts.json');
+	await buildSite({
+		dataRoot: root,
+		config: await loadFixtureConfig(),
+		outDir: out,
+		now: NOW,
+	});
+	const { alerts } = await readOut<{ alerts: unknown[] }>('alerts.json');
+	assert.deepEqual(alerts[0], {
+		coin: 'ETH',
+		ts: '2026-10-28T13:00:00Z',
+		direction: 'down',
+		severity: 'high',
+		issue: 13,
+	});
+	assert.deepEqual(alerts[1], {
+		coin: 'XRP',
+		ts: '2026-10-28T12:00:00Z',
+		direction: 'down',
+		severity: 'extreme',
+		issue: 12,
+	});
+});
+
+test('alerts.json is empty for a state file with the wrong shape or bad JSON', async () => {
+	for (const text of [
+		'{ broken',
+		'{"schema_version":2,"recent":[]}',
+		'{"schema_version":1}',
+		'[]',
+	]) {
+		await mkdir(join(root, 'state'), { recursive: true });
+		await writeFile(join(root, 'state', 'alerts.json'), text);
+		await buildSite({
+			dataRoot: root,
+			config: await loadFixtureConfig(),
+			outDir: out,
+			now: NOW,
+		});
+		assert.deepEqual(
+			(await readOut<{ alerts: unknown[] }>('alerts.json')).alerts,
+			[],
+			text
+		);
+	}
+});
+
+test('latest.json lists the coins in the order of the config', async () => {
+	await writeSampleTree();
+	await writeDay(root, 'ETH', '2026-10-29', [
+		'2026-10-29T11:00:00Z,3000,kr,',
+	]);
+	const config = await loadFixtureConfig();
+	// Config order: DOGE (archived), ETH, BTC, XRP (disabled, no rows)
+	const byId = new Map(config.coins.map((coin) => [coin.id, coin]));
+	config.coins = ['DOGE', 'ETH', 'BTC', 'XRP'].map(
+		(id) => byId.get(id) as (typeof config.coins)[number]
+	);
+	await buildSite({ dataRoot: root, config, outDir: out, now: NOW });
+	const latest = await readOut<{ coins: Record<string, unknown> }>(
+		'latest.json'
+	);
+	assert.deepEqual(Object.keys(latest.coins), ['DOGE', 'ETH', 'BTC']);
 });
 
 test('the output is the same for the same input and the same now', async () => {
 	await writeSampleTree();
 	await copyState(root, 'status.json', 'status.json');
-	await copyState(root, 'alerts-list.json', 'alerts.json');
+	await copyState(root, 'alerts-state.json', 'alerts.json');
 	const config = await loadFixtureConfig();
 	const second = join(root, 'out2');
 	await buildSite({ dataRoot: root, config, outDir: out, now: NOW });
@@ -473,5 +529,5 @@ test('the CLI exits with 1 and a message on a missing argument or a bad config',
 		{ encoding: 'utf8' }
 	);
 	assert.equal(bad.status, 1);
-	assert.match(bad.stderr, /stored_sources/);
+	assert.match(bad.stderr, /config/i);
 });
