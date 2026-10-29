@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# workflow checkouts and build output (the data branch and the code are checked out here in CI)
+/data/
+/code/
+/out/
+
+# JetBrains IDE
+.idea
+
+# macOS
+.DS_Store
+
+# logs
+npm-debug.log
+
+# local agent settings
+.claude/settings.local.json
+CLAUDE.local.md

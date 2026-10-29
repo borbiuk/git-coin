@@ -1,0 +1,24 @@
+# Matches .prettierrc.json (Prettier also reads this file, and its own config wins)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+
+# Prettier writes these with spaces (YAML does not allow tabs for indentation)
+[*.{yml,yaml,md}]
+indent_style = space
+indent_size = 4
+
+# Two trailing spaces are a line break in Markdown
+[*.md]
+trim_trailing_whitespace = false
+
+# Shell scripts are mixed (tabs and 2 spaces); leave the indentation as written
+[*.sh]
+indent_style = unset
+indent_size = unset

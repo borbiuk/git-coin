@@ -1,0 +1,29 @@
+// Markdown lint for the repository docs. Prettier formats the files, so the Prettier preset turns off
+// the style rules it owns. Anchors inside a file are checked by MD051.
+{
+	"config": {
+		"extends": "markdownlint/style/prettier",
+		// Long lines are fine (docs are written one paragraph per line)
+		"MD013": false,
+		// The README may start with HTML
+		"MD033": false,
+		"MD041": false,
+		// The ADR source lists are plain URLs on purpose (one URL per line with its grade)
+		"MD034": false,
+		// ADRs repeat headings such as "Facts" and "Sources" in sections and addenda
+		"MD024": { "siblings_only": true },
+	},
+	"globs": [
+		"*.md",
+		"docs/**/*.md",
+		".github/**/*.md",
+		".claude/rules/*.md",
+		".claude/skills/**/*.md",
+		".claude/agents/*.md",
+	],
+	"ignores": [
+		"node_modules/**",
+		// Boilerplate text
+		"CODE_OF_CONDUCT.md",
+	],
+}

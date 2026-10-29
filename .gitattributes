@@ -1,0 +1,10 @@
+# Keep LF line endings in the working tree on every OS (Prettier uses endOfLine: lf)
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.zip binary
+
+# The vendored chart library is not our code: keep it out of the language statistics and collapse its diffs
+site/vendor/** linguist-vendored=true

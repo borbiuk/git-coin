@@ -1,0 +1,45 @@
+{
+	"name": "git-coin",
+	"version": "0.1.0",
+	"description": "Collects crypto prices on a schedule with GitHub Actions, keeps the history in git and shows it on a GitHub Pages dashboard.",
+	"private": true,
+	"type": "module",
+	"author": "Nazariy Borbiuk",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/borbiuk/git-coin"
+	},
+	"engines": {
+		"node": ">=24.22.1 <25"
+	},
+	"scripts": {
+		"typecheck": "node node_modules/typescript7/bin/tsc --noEmit",
+		"lint": "eslint . && npm run typecheck",
+		"lint:fix": "eslint --fix .",
+		"lint:docs": "markdownlint-cli2 && node scripts/check-docs.mjs",
+		"lint:unused": "knip",
+		"test": "node --test \"test/**/*.test.ts\"",
+		"format": "prettier --write \"./**/*.{ts,js,mjs,json,jsonc,md,yml,css,html}\" --config ./.prettierrc.json",
+		"format:check": "prettier --check \"./**/*.{ts,js,mjs,json,jsonc,md,yml,css,html}\" --config ./.prettierrc.json",
+		"check:versions": "node scripts/check-versions.mjs",
+		"check:outdated": "npm outdated",
+		"check": "npm run format:check && npm run check:versions && npm run lint && npm run lint:docs && npm run lint:unused && npm test",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@eslint/js": "10.0.1",
+		"@types/node": "24.19.2",
+		"eslint": "10.13.0",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-import-x": "4.17.1",
+		"globals": "17.13.0",
+		"husky": "9.1.7",
+		"knip": "6.42.0",
+		"markdownlint-cli2": "0.24.0",
+		"prettier": "3.9.10",
+		"typescript": "npm:@typescript/typescript6@6.0.2",
+		"typescript-eslint": "8.72.0",
+		"typescript7": "npm:typescript@7.0.2"
+	}
+}

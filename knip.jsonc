@@ -1,0 +1,32 @@
+// Finds unused files, exports and dependencies. Run: npm run lint:unused
+{
+	"entry": [
+		// The shared contract and the time helpers (modules import them; listed so the first commits pass)
+		"src/types.ts",
+		"src/time.ts",
+		// The collector and the site builder are started by the workflow (ADR 0005)
+		"src/collect.ts",
+		"src/build-site.ts",
+		// Tools run by hand or by CI jobs
+		"tools/*.ts",
+		// Repository scripts and configs that no plugin or npm script reaches
+		"scripts/*.mjs",
+		// The dashboard (plain JavaScript, loaded by the browser)
+		"site/app.js",
+		// Node test files
+		"test/**/*.test.ts",
+	],
+	"project": [
+		"src/**/*.ts",
+		"tools/**/*.ts",
+		"test/**/*.ts",
+		"scripts/*.mjs",
+		"site/*.js",
+	],
+	// An export used only inside its own file is not dead
+	"ignoreExportsUsedInFile": true,
+	"ignoreIssues": {
+		// The shared contract (docs/implementation/plan.md, section 3) lists types that only some modules use
+		"src/types.ts": ["exports", "types"],
+	},
+}

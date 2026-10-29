@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# stop the commit at the first failing step
+set -e
+
+# format files
+npm run format
+
+# add changes of already tracked files (formatting)
+git add -u
