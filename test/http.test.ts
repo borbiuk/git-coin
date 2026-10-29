@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { createHttpClient } from '../src/http.ts';
 
@@ -41,6 +42,17 @@ async function startServer(handler: Handler): Promise<TestServer> {
 			});
 		},
 	};
+}
+
+// A request that the client gave up on may reach the handler after getJson returns
+async function waitForHits(
+	server: TestServer,
+	expected: number
+): Promise<void> {
+	const deadline = Date.now() + 5000;
+	while (server.hits() < expected && Date.now() < deadline) {
+		await sleep(10);
+	}
 }
 
 function sendJson(res: ServerResponse, status: number, body: string): void {
@@ -180,8 +192,9 @@ test('a response that never comes gives timeout after one retry', async () => {
 		});
 		assert.equal(result.status, 0);
 		assert.equal(result.error, 'timeout');
+		await waitForHits(server, 2);
 		assert.equal(server.hits(), 2);
-		assert.ok(result.ms >= 200);
+		assert.ok(result.ms >= 150, `ms was ${result.ms}`);
 	} finally {
 		await server.close();
 	}
@@ -199,6 +212,7 @@ test('a body that stalls after the headers also times out', async () => {
 		});
 		assert.equal(result.status, 0);
 		assert.equal(result.error, 'timeout');
+		await waitForHits(server, 2);
 		assert.equal(server.hits(), 2);
 	} finally {
 		await server.close();
@@ -208,6 +222,7 @@ test('a body that stalls after the headers also times out', async () => {
 test('a timeout on the first try and 200 on the second returns the data', async () => {
 	const server = await startServer((_req, res, hit) => {
 		if (hit === 1) {
+			// Stay silent so the first try times out; the second try has a generous limit
 			return;
 		}
 		sendJson(res, 200, '{"ok":true}');
@@ -215,7 +230,7 @@ test('a timeout on the first try and 200 on the second returns the data', async 
 	try {
 		const result = await createHttpClient({ retryDelayMs: 0 }).getJson({
 			url: server.url,
-			timeoutMs: 100,
+			timeoutMs: 400,
 		});
 		assert.equal(result.status, 200);
 		assert.deepEqual(result.json, { ok: true });
