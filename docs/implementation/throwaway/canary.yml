@@ -1,0 +1,105 @@
+# canary: does a bot commit keep scheduled workflows alive after 60 days? (checklist item 9, ADR 0005 D7)
+#
+# Purpose
+#   GitHub disables scheduled workflows in a public repo after 60 days without "repository activity",
+#   and does not say what that is. The keepalive step of the collector assumes that an empty bot commit
+#   on the default branch counts. This canary tests that assumption with three variants, one repository
+#   each (the rule looks at the whole repo, so the variants cannot share one):
+#     A  every day the bot commits to the default branch
+#     B  every day the bot commits only to a non-default branch ("canary-log")
+#     C  the workflow commits nothing
+#   The same file is used in all three repos. The repository variable CANARY_VARIANT (A, B or C) picks
+#   the variant. Only scheduled runs commit; a manual run only prints what it would do.
+#
+# How to run
+#   1. Create three throwaway public repos (README.md in this folder has the commands), copy this file
+#      to .github/workflows/ of each, set CANARY_VARIANT in each (gh variable set CANARY_VARIANT --body A),
+#      and push. Start on the same day as the 72-hour pilot. Write the start date down.
+#   2. Make no commit by hand after the first push. Do not run the workflow by hand.
+#
+# What to record
+#   The start date. After 61 days the state of the workflow in each repo:
+#     gh api repos/OWNER/REPO/actions/workflows --jq '.workflows[] | [.name, .state] | @tsv'
+#   "active" means still enabled, "disabled_inactivity" means GitHub turned it off.
+#
+# How to read the result
+#   A active, B and C disabled: a bot commit on the default branch counts, the keepalive step works.
+#   A disabled too: a bot commit does not count. Replace the keepalive (ADR 0005 D7).
+#   All three active: the rule did not apply to this account or repo type. Keep the keepalive anyway.
+#   B active: a commit on a non-default branch counts too.
+#   Put the result into ADR 0005 D7 and the open question 2.
+
+name: canary
+
+on:
+    schedule:
+        - cron: '17 4 * * *'
+    workflow_dispatch:
+
+permissions: {}
+
+jobs:
+    canary:
+        # Does nothing if this file is copied into the real repository by mistake
+        if: github.repository != 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 1
+                  persist-credentials: true
+            - name: Record the run and commit (by variant)
+              env:
+                  VARIANT: ${{ vars.CANARY_VARIANT }}
+                  EVENT: ${{ github.event_name }}
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -euo pipefail
+
+                  case "${VARIANT}" in
+                      A | B | C) ;;
+                      *)
+                          echo 'Set the repository variable CANARY_VARIANT to A, B or C.' >&2
+                          exit 1
+                          ;;
+                  esac
+
+                  line="$(date -u +%Y-%m-%dT%H:%M:%SZ) variant=${VARIANT} event=${EVENT} run=${GITHUB_RUN_ID}"
+                  echo "${line}"
+                  echo "${line}" >> "${GITHUB_STEP_SUMMARY}"
+
+                  if [ "${EVENT}" != schedule ]; then
+                      echo 'Manual run: nothing is committed, so the test stays clean.'
+                      exit 0
+                  fi
+
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+                  case "${VARIANT}" in
+                      A)
+                          echo "${line}" >> canary-log.txt
+                          git add canary-log.txt
+                          git commit -q -m 'Log the canary run'
+                          git push origin "HEAD:refs/heads/${DEFAULT_BRANCH}"
+                          ;;
+                      B)
+                          if git ls-remote --exit-code --heads origin canary-log >/dev/null; then
+                              git fetch --depth 1 origin canary-log
+                              git checkout -q -B canary-log FETCH_HEAD
+                          else
+                              git checkout -q --orphan canary-log
+                              git rm -rfq .
+                          fi
+                          echo "${line}" >> canary-log.txt
+                          git add canary-log.txt
+                          git commit -q -m 'Log the canary run'
+                          git push origin canary-log
+                          ;;
+                      C)
+                          echo 'Variant C: no commit.'
+                          ;;
+                  esac

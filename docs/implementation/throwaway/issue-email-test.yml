@@ -1,0 +1,108 @@
+# issue-email-test: does an Issue created by a workflow email the owner? (checklist item 5, ADR 0006)
+#
+# Purpose
+#   Issues are the only alert channel in v1. The docs do not say whether an Issue created with the
+#   GITHUB_TOKEN sends an email. This workflow creates three Issues with the token (issues: write):
+#     plain    no mention, no assignee
+#     mention  the owner is mentioned in the body
+#     assignee the owner is assigned and mentioned (the shape the real alerts will have, ADR 0006)
+#   It can also fail on purpose, to test the failed-run email.
+#   The mention and the assignee are the owner of the repository (github.repository_owner).
+#
+# How to run
+#   1. Copy this file to .github/workflows/ of the throwaway repo (never into git-coin). Commit and push
+#      it as yourself: the user who last edits the cron line gets the failed-run emails.
+#   2. Use the real notification settings of the account: Watching and Participating by email on,
+#      Settings, Notifications, Actions set to "Only notify for failed workflows".
+#   3. Actions tab, Run workflow, variant "all". Then variant "fail" (the failed-run email for a manual run).
+#   4. Scheduled failed run: set the repository variable EMAIL_TEST_FAIL to true (Settings, Secrets and
+#      variables, Actions, Variables, or: gh variable set EMAIL_TEST_FAIL --body true). The next scheduled
+#      run (every 3 hours) fails on purpose. Delete the variable afterwards. Without the variable the
+#      scheduled run does nothing.
+#
+# What to record
+#   For each Issue: the creation time (it is in the title and body, UTC) and the time its email arrived,
+#   or "never". For the failed runs: the time of the email and which user got it.
+#
+# How to read the result
+#   Pass: variant "assignee" arrives within a few minutes. Note which variants do not arrive. If none
+#   arrives, do not build the alert step as designed: reopen ADR 0006 for a second channel (that needs an
+#   owner decision and a secret). Put the table into ADR 0006 and ADR 0005 (open question 4).
+
+name: issue-email-test
+
+on:
+    schedule:
+        - cron: '47 */3 * * *'
+    workflow_dispatch:
+        inputs:
+            variant:
+                description: Which test to run
+                type: choice
+                options:
+                    - all
+                    - plain
+                    - mention
+                    - assignee
+                    - fail
+                default: all
+
+permissions: {}
+
+jobs:
+    issues:
+        # Does nothing if this file is copied into the real repository by mistake
+        if: github.repository != 'borbiuk/git-coin' && github.event_name == 'workflow_dispatch' && inputs.variant != 'fail'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        permissions:
+            issues: write
+        steps:
+            - name: Create the test Issues
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VARIANT: ${{ inputs.variant }}
+                  OWNER_LOGIN: ${{ github.repository_owner }}
+              run: |
+                  set -uo pipefail
+
+                  create() {
+                      local name=$1 body=$2
+                      shift 2
+                      local now
+                      now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                      if gh issue create --repo "${GITHUB_REPOSITORY}" --title "[email test] ${name} at ${now}" --body "${body} Created at ${now} (UTC) by a workflow with GITHUB_TOKEN." "$@"; then
+                          echo "Created variant ${name} at ${now}"
+                      else
+                          echo "Variant ${name} could not be created." >&2
+                      fi
+                  }
+
+                  if [ "${VARIANT}" = all ] || [ "${VARIANT}" = plain ]; then
+                      create plain 'No mention, no assignee.'
+                      sleep 20
+                  fi
+                  if [ "${VARIANT}" = all ] || [ "${VARIANT}" = mention ]; then
+                      create mention "Mention in the body: @${OWNER_LOGIN}."
+                      sleep 20
+                  fi
+                  if [ "${VARIANT}" = all ] || [ "${VARIANT}" = assignee ]; then
+                      create assignee "Assigned to and mentioned: @${OWNER_LOGIN}." --assignee "${OWNER_LOGIN}"
+                  fi
+
+    fail:
+        # Manual: variant "fail". Scheduled: only when the repository variable EMAIL_TEST_FAIL is "true".
+        if: >-
+            github.repository != 'borbiuk/git-coin' && (
+            (github.event_name == 'workflow_dispatch' && inputs.variant == 'fail') ||
+            (github.event_name == 'schedule' && vars.EMAIL_TEST_FAIL == 'true'))
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+        permissions: {}
+        steps:
+            - name: Fail on purpose
+              env:
+                  EVENT: ${{ github.event_name }}
+              run: |
+                  echo "This ${EVENT} run fails on purpose at $(date -u +%Y-%m-%dT%H:%M:%SZ). Record when the failed-run email arrives and who gets it."
+                  exit 1

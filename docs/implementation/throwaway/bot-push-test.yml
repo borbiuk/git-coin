@@ -1,0 +1,231 @@
+# bot-push-test: push to an orphan data branch as the workflow bot (checklist item 6 a to f, ADR 0004, 0005, 0009).
+#
+# Purpose
+#   The design pushes to an orphan "data" branch with the GITHUB_TOKEN, under rulesets, from one
+#   concurrency group. This workflow checks each point by hand-picked input "check":
+#     a-push         6a  append a line to data and push it as github-actions[bot]
+#     b-concurrency  6b  hold the run for 3 minutes, so you can start it three times (see below)
+#     c-race         6c  a second writer pushes first; the first writer resets, redoes the append, pushes
+#     d-force-push   6d  try a force push to data; it must be rejected
+#     e-keepalive    6e  empty commit "Keep schedule active" on the default branch (ADR 0005 D7)
+#     f-author       6f  push a bot commit and print the author as GitHub shows it
+#
+# How to run
+#   1. Copy this file to .github/workflows/ of the throwaway repo (never into git-coin) and push.
+#   2. Create the orphan branch "data" and the ruleset first. The exact commands are in README.md in
+#      this folder (Item 6). The ruleset blocks deletion and force pushes on data and on the default
+#      branch and has no "require pull request" rule.
+#   3. Actions tab, Run workflow, one check at a time. Start with a-push. Run d-force-push only after the
+#      ruleset exists: without it the force push replaces the data branch.
+#   4. For b-concurrency: run it, then start the same workflow two more times within the 3 minutes.
+#
+# What to record
+#   The lines that start with RESULT (check, PASS or FAIL, note), the git error text of rejected pushes,
+#   and for f-author the "GitHub shows" line: the commit author email and the author login. Write the
+#   email into ADR 0001, open question 4. For b-concurrency look at the run list: expected is one run
+#   in progress, one queued, and the third replacing the queued one (cancelled).
+#
+# How to read the result
+#   Item 6 is done when all six checks behave as designed, or the ADRs are changed. A FAIL on a-push or
+#   e-keepalive means the bot cannot push under this ruleset: then the ADR 0004 and 0009 design needs a
+#   change. A PASS on d-force-push means the push was rejected, as wanted.
+
+name: bot-push-test
+
+on:
+    workflow_dispatch:
+        inputs:
+            check:
+                description: Which check to run
+                type: choice
+                options:
+                    - a-push
+                    - c-race
+                    - e-keepalive
+                    - f-author
+                    - d-force-push
+                    - b-concurrency
+                default: a-push
+
+permissions: {}
+
+# The same group name as the real collector uses (ADR 0005 D3)
+concurrency:
+    group: bot-push-test
+    cancel-in-progress: false
+
+jobs:
+    test:
+        # Does nothing if this file is copied into the real repository by mistake
+        if: github.repository != 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: data
+                  fetch-depth: 1
+                  persist-credentials: true
+            - name: Run the check
+              env:
+                  CHECK: ${{ inputs.check }}
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -uo pipefail
+
+                  DATA=data
+                  LOG=state/bot-push-test.log
+                  failed=0
+
+                  # The commit author is the bot. UNVERIFIED which noreply email GitHub maps to the bot (check 6f).
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+                  now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+                  result() {
+                      echo "RESULT,$1,$2,$3"
+                      echo "| $1 | $2 | $3 |" >> "${GITHUB_STEP_SUMMARY}"
+                      if [ "$2" = FAIL ]; then
+                          failed=1
+                      fi
+                  }
+
+                  # Make the local data branch equal to the remote one (this is the "reset" of the retry rule)
+                  sync_data() {
+                      git fetch -q --depth 1 origin "${DATA}" && git checkout -q -B "${DATA}" FETCH_HEAD
+                  }
+
+                  # Add one line to the log file and commit it
+                  append_line() {
+                      mkdir -p state
+                      echo "$(now) run=${GITHUB_RUN_ID} $1" >> "${LOG}"
+                      git add "${LOG}"
+                      git commit -q -m "Test the bot push: $1"
+                  }
+
+                  check_a() {
+                      sync_data
+                      append_line a-push
+                      if git push -q origin "${DATA}"; then
+                          result a-push PASS "pushed $(git rev-parse --short HEAD) to ${DATA}"
+                      else
+                          result a-push FAIL 'the push was rejected: read the git error above (ruleset or permission)'
+                      fi
+                  }
+
+                  check_c() {
+                      local base b a r
+                      sync_data
+                      base=$(git rev-parse HEAD)
+
+                      # Writer B pushes first, from the same base
+                      git checkout -q --detach "${base}"
+                      append_line c-writer-B
+                      if ! git push -q origin "HEAD:refs/heads/${DATA}"; then
+                          result c-race FAIL 'writer B could not push'
+                          return
+                      fi
+
+                      # Writer A built its commit on the old base, so its push is not a fast-forward
+                      git checkout -q -B "${DATA}" "${base}"
+                      append_line c-writer-A
+                      if git push -q origin "${DATA}"; then
+                          result c-race FAIL 'writer A was accepted: the race did not happen'
+                          return
+                      fi
+                      echo 'Writer A was rejected, as expected. Retry: fetch, reset to the remote branch, redo the append, push.'
+
+                      for attempt in 1 2 3; do
+                          sync_data
+                          append_line c-writer-A-retry
+                          if git push -q origin "${DATA}"; then
+                              break
+                          fi
+                          echo "Retry ${attempt} was rejected."
+                      done
+
+                      sync_data
+                      b=$(grep -c "run=${GITHUB_RUN_ID} c-writer-B$" "${LOG}")
+                      r=$(grep -c "run=${GITHUB_RUN_ID} c-writer-A-retry$" "${LOG}")
+                      a=$(grep -c "run=${GITHUB_RUN_ID} c-writer-A$" "${LOG}")
+                      if [ "${b}" = 1 ] && [ "${r}" = 1 ] && [ "${a}" = 0 ]; then
+                          result c-race PASS 'both writers are on data, no line lost, no line doubled'
+                      else
+                          result c-race FAIL "line counts on data: writer B=${b} (want 1), retry=${r} (want 1), first try of A=${a} (want 0)"
+                      fi
+                  }
+
+                  check_d() {
+                      sync_data
+                      git checkout -q --orphan force-test
+                      git rm -rfq . 2>/dev/null || true
+                      echo "force push test $(now)" > force-test.txt
+                      git add force-test.txt
+                      git commit -q -m 'Test a force push'
+                      if git push -q --force origin "force-test:${DATA}" 2>"${RUNNER_TEMP}/force.err"; then
+                          result d-force-push FAIL 'the force push was ACCEPTED: the ruleset is missing or the bot can bypass it'
+                      else
+                          sed 's/^/git: /' "${RUNNER_TEMP}/force.err"
+                          result d-force-push PASS 'the force push was rejected'
+                      fi
+                  }
+
+                  check_e() {
+                      git fetch -q --depth 1 origin "${DEFAULT_BRANCH}"
+                      git checkout -q -B keepalive-test FETCH_HEAD
+                      git commit -q --allow-empty -m 'Keep schedule active'
+                      if git push -q origin "HEAD:refs/heads/${DEFAULT_BRANCH}"; then
+                          result e-keepalive PASS "empty commit pushed to ${DEFAULT_BRANCH}"
+                      else
+                          result e-keepalive FAIL "the empty commit was rejected on ${DEFAULT_BRANCH}: check the ruleset"
+                      fi
+                  }
+
+                  check_f() {
+                      local sha
+                      sync_data
+                      append_line f-author
+                      if ! git push -q origin "${DATA}"; then
+                          result f-author FAIL 'the push was rejected'
+                          return
+                      fi
+                      sha=$(git rev-parse HEAD)
+                      echo "git author: $(git log -1 --format='%an <%ae>')"
+                      sleep 3
+                      gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}" --jq '"GitHub shows: name=\(.commit.author.name) email=\(.commit.author.email) login=\(.author.login // "none") id=\(.author.id // "none")"'
+                      result f-author PASS 'copy the email and the login above into ADR 0001, open question 4'
+                  }
+
+                  check_b() {
+                      sync_data
+                      append_line b-concurrency
+                      git push -q origin "${DATA}" || echo 'The push of this check was rejected.'
+                      echo 'Holding this run for 180 seconds. Start this workflow two more times now.'
+                      sleep 180
+                      result b-concurrency INFO 'read the run list: one in progress, one queued, the third replaced the queued one'
+                  }
+
+                  {
+                      echo '### Bot push test'
+                      echo
+                      echo '| check | result | note |'
+                      echo '| --- | --- | --- |'
+                  } >> "${GITHUB_STEP_SUMMARY}"
+
+                  case "${CHECK}" in
+                      a-push) check_a ;;
+                      b-concurrency) check_b ;;
+                      c-race) check_c ;;
+                      d-force-push) check_d ;;
+                      e-keepalive) check_e ;;
+                      f-author) check_f ;;
+                      *)
+                          echo "Unknown check: ${CHECK}" >&2
+                          exit 1
+                          ;;
+                  esac
+                  exit "${failed}"
