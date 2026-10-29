@@ -52,6 +52,11 @@ const SOURCES = {
 		credit: null,
 	},
 	bs: { name: 'Bitstamp', url: 'https://www.bitstamp.net/', credit: null },
+	'bs-ohlc': {
+		name: 'Bitstamp',
+		url: 'https://www.bitstamp.net/',
+		credit: null,
+	},
 	cm: {
 		name: 'Coin Metrics',
 		url: 'https://coinmetrics.io/',

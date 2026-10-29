@@ -2,7 +2,7 @@
 // Types and constants only: no logic. Changes go through the orchestrator.
 
 export type SourceId = 'kraken' | 'coinbase' | 'bitstamp' | 'coinmetrics';
-export type SrcCode = 'kr' | 'cb' | 'bs' | 'cm' | 'kr-ohlc';
+export type SrcCode = 'kr' | 'cb' | 'bs' | 'cm' | 'kr-ohlc' | 'bs-ohlc';
 export const SRC_CODE = {
 	kraken: 'kr',
 	coinbase: 'cb',

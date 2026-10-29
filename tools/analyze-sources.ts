@@ -14,7 +14,7 @@ import {
 	type SrcCode,
 } from '../src/types.ts';
 
-/** The sources of the test, in the order of the tables. Backfill rows (`kr-ohlc`) are not analysed. */
+/** The sources of the test, in the order of the tables. Backfill rows (`kr-ohlc`, `bs-ohlc`) are not analysed. */
 const TEST_SOURCES: SrcCode[] = [
 	SRC_CODE.kraken,
 	SRC_CODE.coinbase,

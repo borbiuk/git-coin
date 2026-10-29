@@ -180,6 +180,7 @@ test('sourceInfo names the source and links it', () => {
 	assert.equal(lib.sourceInfo('kr-ohlc').name, 'Kraken');
 	assert.equal(lib.sourceInfo('cb').name, 'Coinbase');
 	assert.equal(lib.sourceInfo('bs').name, 'Bitstamp');
+	assert.equal(lib.sourceInfo('bs-ohlc').name, 'Bitstamp');
 	assert.equal(lib.sourceInfo('cm').name, 'Coin Metrics');
 	for (const src of ['kr', 'cb', 'bs', 'cm']) {
 		assert.match(lib.sourceInfo(src).url, /^https:\/\//);

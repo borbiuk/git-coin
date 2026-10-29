@@ -129,7 +129,7 @@ Commit counts per year at 100% delivery: 105,120 (5 min), 52,560 (10 min), 35,04
 - `age_s` is the age of the source's own timestamp at fetch time, in seconds. It is empty when the source gives none (Kraken). Details in D7.
 - `ts` is the real fetch time in UTC, ISO 8601, second precision, always with `Z`. It is never the scheduled time and never a grid time.
 - `price` is the source string, copied as is. No float formatting. Quote currency is USD for all coins (ADR 0002), so it is not a column. Quote is written in the config and in `status.json`.
-- `src` is a short source code: `kr` Kraken, `cb` Coinbase Exchange, `bs` Bitstamp, `cm` Coin Metrics. Backfill rows use `kr-ohlc` (see ADR 0005). The four-source test stores all four in the same files (D7). After the choice, new rows carry the chosen `src` only, and the old rows of the other sources stay.
+- `src` is a short source code: `kr` Kraken, `cb` Coinbase Exchange, `bs` Bitstamp, `cm` Coin Metrics. Backfill rows use `kr-ohlc` (Kraken, see ADR 0005) or `bs-ohlc` (Bitstamp 15-minute candles from 2024-01-01 to 2026-10-28, `ts` is the candle close time, `age_s` is empty; written once by `tools/backfill-bitstamp.ts`). The four-source test stores all four in the same files (D7). After the choice, new rows carry the chosen `src` only, and the old rows of the other sources stay.
 
 ### D2. Commit policy
 

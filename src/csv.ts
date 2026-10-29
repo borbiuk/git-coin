@@ -11,7 +11,11 @@ const LOG_HEADER = 'ts,src,http,ms,coins_ok,error';
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const COIN_RE = /^[A-Za-z0-9]{1,20}$/;
 const INTEGER_RE = /^-?\d+$/;
-const SRC_CODES = new Set<string>([...Object.values(SRC_CODE), 'kr-ohlc']);
+const SRC_CODES = new Set<string>([
+	...Object.values(SRC_CODE),
+	'kr-ohlc',
+	'bs-ohlc',
+]);
 
 function isNotFound(error: unknown): boolean {
 	return (error as NodeJS.ErrnoException).code === 'ENOENT';
