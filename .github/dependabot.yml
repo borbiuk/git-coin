@@ -1,0 +1,30 @@
+# Weekly update pull requests for npm packages and GitHub Actions.
+# Versions stay exact (package.json) and actions stay pinned to a commit SHA; Dependabot keeps both styles.
+# Not covered: the tools that build.yml installs with a pinned version (check-jsonschema, zizmor, actionlint)
+# and the vendored uPlot in site/vendor. Update those by hand.
+version: 2
+updates:
+    - package-ecosystem: npm
+      directory: /
+      schedule:
+          interval: weekly
+      # Wait a week after a release, so broken or malicious releases are usually pulled first
+      cooldown:
+          default-days: 7
+      ignore:
+          # `typescript` is the TypeScript 6 compat package for typescript-eslint; it must stay on 6.
+          # The type checker is `typescript7`, which is updated normally.
+          - dependency-name: typescript
+            update-types: ['version-update:semver-major']
+      groups:
+          dev-tooling:
+              dependency-type: development
+          runtime:
+              dependency-type: production
+
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      cooldown:
+          default-days: 7

@@ -1,0 +1,158 @@
+name: collect
+
+# Collects the prices, writes them to the `data` branch and publishes the dashboard (ADR 0005 D3).
+# The collector command line, its outputs and its exit codes are in docs/implementation/plan.md, section 3.4.
+# The cron minutes are off-peak on purpose: GitHub names the start of the hour as a high-load time.
+# Fallback if the 15 minute cron is delivered too rarely: '7,37 * * * *' (ADR 0005 D1).
+on:
+    schedule:
+        - cron: '3,18,33,48 * * * *'
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: Fetch and validate, but write nothing, open no Issue and do not publish
+                type: boolean
+                default: false
+            mode:
+                description: collect is the normal run. backfill is a later feature and is refused for now
+                type: choice
+                options:
+                    - collect
+                    - backfill
+                default: collect
+
+# Each job asks for what it needs
+permissions: {}
+
+# One run at a time and one pending run. A running job is never cancelled in the middle of a push.
+# A newer tick replaces a pending tick, which only leaves a gap in the data (ADR 0005 D3).
+concurrency:
+    group: collect
+    cancel-in-progress: false
+
+jobs:
+    collect:
+        # Forks do not run the collector
+        if: github.repository == 'borbiuk/git-coin'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+        permissions:
+            # Push to the `data` branch and the keepalive commit on `main`
+            contents: write
+            # Alert Issues and the `no data` Issue
+            issues: write
+        env:
+            # The Husky hook is never wanted in CI (it is only for local commits)
+            HUSKY: '0'
+        outputs:
+            should_publish: ${{ steps.collect.outputs.should_publish }}
+            rows_written: ${{ steps.collect.outputs.rows_written }}
+
+        steps:
+            - name: Check the Node.js version
+              # The runner image decides the Node.js patch version. A wrong major stops the run (ADR 0003).
+              run: |
+                  version="$(node --version)"
+                  echo "Node.js ${version}"
+                  case "${version}" in
+                      v24.*) ;;
+                      *)
+                          echo "::error::Expected Node.js 24, found ${version}"
+                          exit 1
+                          ;;
+                  esac
+            - name: Refuse the modes that do not exist yet
+              env:
+                  MODE: ${{ inputs.mode }}
+              run: |
+                  if [ -n "${MODE}" ] && [ "${MODE}" != "collect" ]; then
+                      echo "::error::The mode '${MODE}' is not implemented yet"
+                      exit 1
+                  fi
+            - name: Check out the code (branch main)
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: main
+                  path: code
+                  fetch-depth: 1
+                  # The keepalive step pushes an empty commit to main when the branch is quiet (ADR 0005 D7)
+                  persist-credentials: true
+            - name: Check out the data (branch data)
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: data
+                  path: data
+                  fetch-depth: 1
+                  # The collector pushes the new rows to this branch
+                  persist-credentials: true
+            - name: Collect the prices
+              id: collect
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+                  DRY_RUN: ${{ inputs.dry_run }}
+              run: |
+                  args=(--config code/config/coins.json --data-root data --code-root code --keepalive)
+                  if [ "${DRY_RUN}" = "true" ]; then
+                      args+=(--dry-run)
+                  fi
+                  node code/src/collect.ts "${args[@]}"
+
+    publish:
+        # Runs only when the collector asks for it (at most once per 30 minutes), never in a dry run
+        if: >-
+            github.repository == 'borbiuk/git-coin'
+            && needs.collect.outputs.should_publish == 'true'
+            && !inputs.dry_run
+        needs: collect
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            # Deploy the Pages artifact
+            pages: write
+            # Proves to GitHub Pages that the deploy comes from this workflow
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
+        steps:
+            - name: Check the Node.js version
+              run: |
+                  version="$(node --version)"
+                  echo "Node.js ${version}"
+                  case "${version}" in
+                      v24.*) ;;
+                      *)
+                          echo "::error::Expected Node.js 24, found ${version}"
+                          exit 1
+                          ;;
+                  esac
+            - name: Check out the code (branch main)
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: main
+                  path: code
+                  fetch-depth: 1
+                  # This job never pushes
+                  persist-credentials: false
+            - name: Check out the data (branch data)
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: data
+                  path: data
+                  fetch-depth: 1
+                  persist-credentials: false
+            - name: Build the site
+              # The static dashboard first, then the derived JSON next to it (ADR 0008 D1 and D2)
+              run: |
+                  mkdir -p out
+                  cp -R code/site/. out/
+                  node code/src/build-site.ts --config code/config/coins.json --data-root data --out out/data
+            - name: Upload the Pages artifact
+              uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+              with:
+                  path: out
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

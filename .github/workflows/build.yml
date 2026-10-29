@@ -1,0 +1,146 @@
+name: build
+
+# The checks of `npm run check`, split into jobs, plus the config and workflow checks (ADR 0009 D6).
+# Required status checks: build, checks, config. Not required: node22 and symbols (see below).
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+permissions:
+    contents: read
+
+# A newer push to the same branch or pull request cancels the older run
+concurrency:
+    group: build-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        runs-on: ubuntu-26.04
+        timeout-minutes: 15
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  # These jobs never push, so the token is not kept in the git config
+                  persist-credentials: false
+            - name: Use Node.js 24.22.1
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24.22.1
+                  cache: npm
+            - run: npm ci --ignore-scripts
+            - name: Check the registry signatures of the installed packages
+              run: npm audit signatures
+            - run: npm run check:versions
+            - run: npm run format:check
+            - run: npm run lint
+            - run: npm test
+
+    # Not a required check. Node 22 is on the runner image next to Node 24. The collector targets Node 24
+    # (package.json "engines"), so this job only shows early whether the code still runs on the older version.
+    node22:
+        name: node22 (not required)
+        runs-on: ubuntu-26.04
+        timeout-minutes: 15
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js 22
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22.x
+                  cache: npm
+            - name: Install the packages
+              # .npmrc sets engine-strict, which would refuse Node 22
+              run: npm ci --ignore-scripts --engine-strict=false
+            - run: npm test
+
+    # Repository checks that do not depend on the Node version, so they run once
+    checks:
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js 24.22.1
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24.22.1
+                  cache: npm
+            - run: npm ci --ignore-scripts
+            - name: Check the Markdown files and their relative links
+              run: npm run lint:docs
+            - name: Check for unused files, exports and dependencies
+              run: npm run lint:unused
+
+    # The config file against its JSON Schema, and the workflow files against their linters.
+    # The tool versions are pinned here and are not updated by Dependabot: bump them by hand.
+    config:
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+        env:
+            CHECK_JSONSCHEMA_VERSION: 0.39.0
+            ZIZMOR_VERSION: 1.31.1
+            ACTIONLINT_VERSION: 1.7.12
+            # linux_amd64 tarball, from actionlint_1.7.12_checksums.txt of the release
+            ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Install check-jsonschema and zizmor
+              # A virtual environment keeps the system Python untouched
+              run: |
+                  python3 -m venv "${RUNNER_TEMP}/tools"
+                  "${RUNNER_TEMP}/tools/bin/pip" install --disable-pip-version-check \
+                      "check-jsonschema==${CHECK_JSONSCHEMA_VERSION}" "zizmor==${ZIZMOR_VERSION}"
+                  echo "${RUNNER_TEMP}/tools/bin" >> "${GITHUB_PATH}"
+            - name: Install actionlint
+              run: |
+                  archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+                  curl -sSfL -o "${RUNNER_TEMP}/${archive}" \
+                      "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+                  echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check
+                  mkdir -p "${RUNNER_TEMP}/actionlint"
+                  tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/actionlint" actionlint
+                  echo "${RUNNER_TEMP}/actionlint" >> "${GITHUB_PATH}"
+            - name: Check the config against its JSON Schema
+              run: check-jsonschema --schemafile config/coins.schema.json config/coins.json
+            - name: Check the workflows and the Dependabot config against the GitHub schemas
+              run: |
+                  check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/*.yml
+                  check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml
+            - name: Lint the workflows with actionlint
+              run: actionlint -color
+            - name: Audit the workflows with zizmor
+              env:
+                  # Read-only token for the online audits (known vulnerable actions, pins that do not match tags)
+                  GH_TOKEN: ${{ github.token }}
+              run: zizmor .
+
+    # Not a required check. It calls the public catalogues of the sources, so an outside outage can fail it
+    # (ADR 0007 D4).
+    symbols:
+        name: symbols (not required)
+        runs-on: ubuntu-26.04
+        timeout-minutes: 10
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Use Node.js 24.22.1
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24.22.1
+            - name: Check the symbols of every enabled coin against the live catalogues
+              # The tool has no runtime dependencies, so no npm install is needed
+              run: node tools/check-symbols.ts
