@@ -17,6 +17,7 @@ function row(price: string): PriceRow {
 const production = {
 	phase: 'production' as const,
 	previous: 100 as number | null,
+	previousAgeSeconds: 900 as number | null,
 	maxStepPercent: 50,
 	crosscheckMaxDiffPercent: 2,
 };
@@ -190,5 +191,73 @@ test('validateRow rejects a small step that the cross-check contradicts', () => 
 	assert.deepEqual(
 		validateRow(row('101'), { ...production, crosscheck: 101.5 }),
 		{ ok: true }
+	);
+});
+
+test('validateRow skips the step check for an old previous value', () => {
+	const old = { ...production, previousAgeSeconds: 6 * 3600 + 1 };
+	assert.deepEqual(validateRow(row('200'), old), { ok: true });
+	assert.deepEqual(validateRow(row('200'), production), {
+		ok: false,
+		reason: 'step_no_crosscheck',
+	});
+});
+
+test('validateRow still checks the price text when the previous value is old', () => {
+	const old = { ...production, previousAgeSeconds: 86400 };
+	assert.deepEqual(validateRow(row('0'), old), {
+		ok: false,
+		reason: 'not_positive',
+	});
+});
+
+test('validateRow skips the step check when the age of the previous value is unknown', () => {
+	assert.deepEqual(
+		validateRow(row('200'), { ...production, previousAgeSeconds: null }),
+		{ ok: true }
+	);
+	assert.deepEqual(
+		validateRow(row('200'), {
+			phase: 'production',
+			previous: 100,
+			maxStepPercent: 50,
+			crosscheckMaxDiffPercent: 2,
+		}),
+		{ ok: true }
+	);
+});
+
+test('validateRow applies the step check at exactly 6 hours', () => {
+	assert.deepEqual(
+		validateRow(row('200'), { ...production, previousAgeSeconds: 21600 }),
+		{ ok: false, reason: 'step_no_crosscheck' }
+	);
+	assert.deepEqual(
+		validateRow(row('200'), { ...production, previousAgeSeconds: 21601 }),
+		{ ok: true }
+	);
+});
+
+test('validateRow uses maxStepAgeSeconds when it is given', () => {
+	const ctx = {
+		...production,
+		maxStepAgeSeconds: 600,
+		previousAgeSeconds: 900,
+	};
+	assert.deepEqual(validateRow(row('200'), ctx), { ok: true });
+	assert.deepEqual(
+		validateRow(row('200'), { ...ctx, maxStepAgeSeconds: 900 }),
+		{ ok: false, reason: 'step_no_crosscheck' }
+	);
+});
+
+test('validateRow keeps the cross-check when the previous value is old', () => {
+	assert.deepEqual(
+		validateRow(row('200'), {
+			...production,
+			previousAgeSeconds: 86400,
+			crosscheck: 100,
+		}),
+		{ ok: false, reason: 'crosscheck_diff' }
 	);
 });

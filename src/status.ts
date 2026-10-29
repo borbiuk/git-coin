@@ -29,6 +29,8 @@ export interface RunSummary {
 		rejected: Array<{ coin: string; reason: string }>;
 		/** Ids of the coins the source did not deliver (unmapped or missing in the response). */
 		missingCoins: string[];
+		/** Rows skipped by the spacing or clock guard. Optional: a missing value means 0. */
+		skipped?: number;
 	}>;
 }
 
@@ -74,6 +76,8 @@ export function applyRun(prev: Status, run: RunSummary, now: Date): Status {
 	const writtenCoins = new Set<string>();
 	const missingCoins = new Set<string>();
 	let rowsWritten = 0;
+	let rowsSkipped = 0;
+	let anyError = false;
 
 	for (const source of run.sources) {
 		const log = source.log;
@@ -83,6 +87,7 @@ export function applyRun(prev: Status, run: RunSummary, now: Date): Status {
 			stats.consecutive_failures = 0;
 			stats.last_ok_at = log.ts;
 		} else {
+			anyError = true;
 			stats.failures += 1;
 			stats.consecutive_failures += 1;
 			const code: ErrorCode = log.error;
@@ -94,6 +99,7 @@ export function applyRun(prev: Status, run: RunSummary, now: Date): Status {
 			writtenCoins.add(row.coin);
 			rowsWritten += 1;
 		}
+		rowsSkipped += source.skipped ?? 0;
 		for (const coin of source.missingCoins) {
 			missingCoins.add(coin);
 		}
@@ -120,6 +126,8 @@ export function applyRun(prev: Status, run: RunSummary, now: Date): Status {
 	if (rowsWritten > 0) {
 		next.consecutive_failures = 0;
 		next.last_point_at = nowIso;
+	} else if (!anyError && rowsSkipped > 0) {
+		// Idle run: every row was skipped as a duplicate. It is not a failure and not a success.
 	} else {
 		next.consecutive_failures += 1;
 	}
