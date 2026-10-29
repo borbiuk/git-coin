@@ -1,0 +1,16 @@
+{
+	"data": [
+		{
+			"asset": "btc",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "100.00"
+		},
+		{
+			"asset": "eth",
+			"time": "2026-10-29T14:40:00.000000000Z",
+			"ReferenceRateUSD": "20.5"
+		}
+	],
+	"next_page_token": "synthetic-token",
+	"next_page_url": "https://community-api.coinmetrics.io/v4/timeseries/asset-metrics?next_page_token=synthetic-token"
+}
