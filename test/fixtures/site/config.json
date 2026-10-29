@@ -1,0 +1,15 @@
+{
+	"schema_version": 1,
+	"settings": {
+		"quote": "USD",
+		"stored_sources": ["kraken", "coinbase"],
+		"phase": "test",
+		"features": { "alerts": false, "publish": true }
+	},
+	"coins": [
+		{ "id": "BTC", "name": "Bitcoin", "enabled": true },
+		{ "id": "ETH", "name": "Ethereum", "enabled": true },
+		{ "id": "DOGE", "name": "Dogecoin", "enabled": false },
+		{ "id": "XRP", "name": "XRP", "enabled": false }
+	]
+}
