@@ -1,0 +1,9 @@
+# Used by .github/workflows/codeql.yml
+name: git-coin CodeQL config
+
+# Not our code: the vendored chart library of the dashboard, build output and the CI checkouts
+paths-ignore:
+    - site/vendor
+    - out
+    - code
+    - data

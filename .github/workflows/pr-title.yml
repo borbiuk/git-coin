@@ -1,0 +1,37 @@
+name: pr-title
+
+# The title of a pull request becomes the commit title on main, so it is checked here (see CONTRIBUTING.md).
+# Pushes to main are not checked: a bad title there cannot be fixed without rewriting history.
+on:
+    pull_request:
+        branches: [main]
+        types: [opened, edited, synchronize, reopened]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: pr-title-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    title:
+        # Dependabot titles are generated and can be longer than the limit
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
+        runs-on: ubuntu-26.04
+        timeout-minutes: 5
+
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  # The job never pushes, so the token is not kept in the git config
+                  persist-credentials: false
+            - name: Use Node.js 24.22.1
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24.22.1
+            - name: Check the pull request title
+              # The title is passed through the environment and never written into the script text
+              env:
+                  PR_TITLE: ${{ github.event.pull_request.title }}
+              run: node scripts/check-pr-title.mjs
