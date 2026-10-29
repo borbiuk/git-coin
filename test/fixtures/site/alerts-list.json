@@ -1,0 +1,81 @@
+{
+	"alerts": [
+		{
+			"coin": "BTC",
+			"ts": "2026-10-20T10:00:00Z",
+			"direction": "down",
+			"severity": "high",
+			"issue": 1
+		},
+		{
+			"coin": "ETH",
+			"ts": "2026-10-21T10:00:00Z",
+			"direction": "up",
+			"severity": "critical",
+			"issue": 2
+		},
+		{
+			"coin": "BTC",
+			"ts": "2026-10-22T10:00:00Z",
+			"direction": "sideways",
+			"severity": "high",
+			"issue": 3
+		},
+		{ "coin": "BTC", "ts": "not a time", "direction": "up", "issue": 4 },
+		"not an object",
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-23T10:00:00Z",
+			"direction": "up",
+			"issue": 5
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-24T10:00:00Z",
+			"direction": "down",
+			"issue": 6
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-25T10:00:00Z",
+			"direction": "up",
+			"issue": 7
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-26T10:00:00Z",
+			"direction": "down",
+			"issue": 8
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-27T10:00:00Z",
+			"direction": "up",
+			"issue": 9
+		},
+		{
+			"coin": "DOGE",
+			"ts": "2026-10-28T10:00:00Z",
+			"direction": "down",
+			"issue": 10
+		},
+		{
+			"coin": "XRP",
+			"ts": "2026-10-28T11:00:00Z",
+			"direction": "up",
+			"issue": 11
+		},
+		{
+			"coin": "XRP",
+			"ts": "2026-10-28T12:00:00Z",
+			"direction": "down",
+			"issue": 12
+		},
+		{
+			"coin": "ETH",
+			"ts": "2026-10-28T13:00:00Z",
+			"direction": "down",
+			"issue": 13
+		}
+	]
+}

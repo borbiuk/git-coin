@@ -1,0 +1,25 @@
+{
+	"schema_version": 1,
+	"phase": "test",
+	"last_run_at": "2026-10-29T11:58:00Z",
+	"last_point_at": "2026-10-29T12:00:00Z",
+	"consecutive_failures": 0,
+	"last_publish_at": "2026-10-29T11:30:00Z",
+	"sources": {
+		"kr": {
+			"requests": 10,
+			"failures": 1,
+			"failures_by_error": { "timeout": 1 },
+			"consecutive_failures": 0,
+			"last_ok_at": "2026-10-29T12:00:00Z"
+		}
+	},
+	"coins": {
+		"BTC": {
+			"last_point_at": "2026-10-29T12:00:00Z",
+			"status": "ok",
+			"rejected_count": 0,
+			"last_reject_reason": null
+		}
+	}
+}
