@@ -49,7 +49,7 @@ test('day rollover: rows follow the UTC day of their own time, also inside one r
 				: null;
 		const result = await runAt(world, start);
 		assert.equal(result.exitCode, 0, start);
-		assert.equal(result.rowsWritten, 40, start);
+		assert.equal(result.rowsWritten, 44, start);
 		assertInSync(world.data, world.dataRemote, 'data');
 	}
 
@@ -80,7 +80,7 @@ test('day rollover: rows follow the UTC day of their own time, also inside one r
 		);
 	assert.ok(crossing.some((row) => row.file.startsWith('2026/10/29/')));
 	assert.ok(crossing.some((row) => row.file.startsWith('2026/10/30/')));
-	assert.equal(crossing.length, 10);
+	assert.equal(crossing.length, 11);
 
 	const status = readStatus(world.data);
 	assert.equal(status.sources.cb?.requests, 4);
@@ -103,16 +103,16 @@ test('the spacing guard works across midnight, where the last row is in the file
 	);
 	// Ten minutes later the rows go to the new day
 	const next = await runAt(world, '2026-10-30T00:10:00Z');
-	assert.equal(next.rowsWritten, 40);
+	assert.equal(next.rowsWritten, 44);
 	assertFileInvariants(world.data, 300);
 });
 
 test('a restart inside min_spacing adds no row and no double. The boundary is exactly 300 seconds', async () => {
 	const world = await makeWorld();
-	assert.equal((await runAt(world, T0)).rowsWritten, 40);
+	assert.equal((await runAt(world, T0)).rowsWritten, 44);
 	assert.equal((await runAt(world, plusMinutes(T0, 1))).rowsWritten, 0);
 	assert.equal((await runAt(world, '2026-10-29T10:08:11Z')).rowsWritten, 0);
-	assert.equal((await runAt(world, '2026-10-29T10:08:12Z')).rowsWritten, 40);
+	assert.equal((await runAt(world, '2026-10-29T10:08:12Z')).rowsWritten, 44);
 	for (const coin of world.config.coins) {
 		assert.equal(rowsOf(world.data, coin.id).length, 8, coin.id);
 	}
@@ -184,7 +184,7 @@ test('a run that died after writing leaves rows in the working tree. The next ru
 	const result = await runAt(world, plusMinutes(T0, 2));
 	assert.equal(result.exitCode, 0);
 	// Kraken is skipped by the spacing guard against the dead run's rows. The other sources are written.
-	assert.equal(result.rowsWritten, 30);
+	assert.equal(result.rowsWritten, 33);
 	for (const coin of world.config.coins) {
 		const kraken = rowsOf(world.data, coin.id).filter(
 			(row) => row.src === 'kr'
@@ -222,7 +222,7 @@ test('a committed half line is closed with a line break, kept as it is, and the 
 	assert.ok(!before.endsWith('\n'));
 	const result = await runAt(world, plusMinutes(T0, 15));
 	assert.equal(result.exitCode, 0);
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assertInSync(world.data, world.dataRemote, 'data');
 
 	const after = remoteShow(

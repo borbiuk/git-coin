@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+	RATE_MAX_GAP_SECONDS,
+	convertSamples,
 	dailyCandles,
 	hourlyPoints,
 	loadSamples,
@@ -236,4 +238,64 @@ test('periodStats rounds the change to four decimals', () => {
 		sample('2026-10-29T12:00:00Z', 4),
 	];
 	assert.equal(periodStats(samples, NOW, DAY).change_pct, 33.3333);
+});
+
+test('convertSamples divides by the rate nearest in time and keeps the order and the times', () => {
+	const rates = [
+		sample('2026-10-29T10:00:00Z', 0.5),
+		sample('2026-10-29T11:00:00Z', 0.25),
+	];
+	const prices = [
+		sample('2026-10-29T10:10:00Z', 10),
+		sample('2026-10-29T10:40:00Z', 10),
+		sample('2026-10-29T10:30:00Z', 10),
+	];
+	assert.deepEqual(convertSamples(prices.slice(0, 2), rates), [
+		sample('2026-10-29T10:10:00Z', 20),
+		sample('2026-10-29T10:40:00Z', 40),
+	]);
+	// Equally near: the earlier rate
+	assert.equal(convertSamples(prices.slice(2), rates)[0]?.p, 20);
+});
+
+test('convertSamples uses the first rate for a price before it, and the last one for a price after it', () => {
+	const rates = [sample('2026-10-29T10:00:00Z', 2)];
+	assert.deepEqual(
+		convertSamples(
+			[
+				sample('2026-10-29T09:00:00Z', 10),
+				sample('2026-10-29T12:00:00Z', 10),
+			],
+			rates
+		).map((item) => item.p),
+		[5, 5]
+	);
+});
+
+test('convertSamples drops a price that has no rate within the limit, and ignores rates that are not positive', () => {
+	const far = RATE_MAX_GAP_SECONDS + 1;
+	const rates = [
+		sample('2026-10-29T10:00:00Z', 0),
+		sample('2026-10-29T10:05:00Z', 2),
+	];
+	const late = new Date(epoch('2026-10-29T10:05:00Z') * 1000 + far * 1000);
+	const lateIso = `${late.toISOString().slice(0, 19)}Z`;
+	const out = convertSamples(
+		[sample('2026-10-29T10:00:00Z', 10), sample(lateIso, 10)],
+		rates
+	);
+	assert.deepEqual(
+		out.map((item) => item.p),
+		[5]
+	);
+	assert.deepEqual(convertSamples([sample(lateIso, 10)], []), []);
+});
+
+test('convertSamples rounds the result to 12 significant digits', () => {
+	const out = convertSamples(
+		[sample('2026-10-29T10:00:00Z', 78774)],
+		[sample('2026-10-29T10:00:00Z', 0.99885)]
+	);
+	assert.equal(out[0]?.p, Number((78774 / 0.99885).toPrecision(12)));
+	assert.ok(String(out[0]?.p).length <= 14);
 });

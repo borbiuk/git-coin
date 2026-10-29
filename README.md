@@ -2,7 +2,7 @@
 
 # git-coin
 
-**USD prices of ten coins, collected on a schedule by GitHub Actions. The git history is the price history.**
+**Prices of ten coins, collected on a schedule by GitHub Actions. The git history is the price history.**
 
 [![build](https://github.com/borbiuk/git-coin/actions/workflows/build.yml/badge.svg)](https://github.com/borbiuk/git-coin/actions/workflows/build.yml)
 [![license](https://img.shields.io/github/license/borbiuk/git-coin)](LICENSE)
@@ -27,7 +27,7 @@ The reasons behind every choice are in the [decision records](docs/adr/0000-inde
 
 ## Coins
 
-BTC, ETH, BNB, XRP, SOL, DOGE, LINK, ADA, XLM and LTC, all quoted in USD. The list is in `config/coins.json`.
+BTC, ETH, BNB, XRP, SOL, DOGE, LINK, ADA, XLM and LTC, stored in USD. The dashboard shows them in USDT, converted with the USDT/USD price (the `USDT` entry with `"role": "rate"`, [ADR 0008](docs/adr/0008-dashboard-stack-and-metrics.md) D7). The list is in `config/coins.json`.
 
 ## Data sources and attribution
 
@@ -79,7 +79,7 @@ On GitHub, the same dry run is the `collect` workflow started by hand with the i
 
 - **Freshness.** GitHub documents a 5-minute minimum for scheduled workflows, but delivers far fewer runs, and late. Expect gaps. The dashboard does not promise minute-level data and shows a banner when the data is late or stopped.
 - **Alerts are late too.** An alert needs a run, so it can come hours late. A fast spike that reverses between two samples is not seen. Do not use the alerts for trading.
-- **Prices are exchange prices.** They are last trade prices or reference rates in USD, and they differ a little between sources.
+- **Prices are exchange prices.** They are last trade prices or reference rates in USD (shown in USDT on the page), and they differ a little between sources.
 - **Test data.** The first 14 days store four sources side by side. See the test period note above.
 - **Terms of the sources.** Some sources do not clearly allow storing or showing their data in public. Coinbase's market data terms forbid display and redistribution. This was a known and accepted risk of the test ([ADR 0002](docs/adr/0002-data-sources.md), Revision 2).
 - **No history rewrite.** The `data` branch is append-only. Rows that were committed stay in the history, and forks and clones keep copies.

@@ -45,6 +45,46 @@ export function toSamples(points: PricePoint[]): Sample[] {
 	return samples;
 }
 
+/** A price is matched to a rate at most this far away in time. */
+export const RATE_MAX_GAP_SECONDS = 24 * 3600;
+
+/**
+ * Divides every price by the rate nearest to it in time (the earlier one when two are equally near).
+ * A price with no rate within `RATE_MAX_GAP_SECONDS` is dropped, so the series shows a gap and
+ * never a wrong number. Both lists are in time order.
+ */
+export function convertSamples(samples: Sample[], rates: Sample[]): Sample[] {
+	const usable = rates.filter((rate) => rate.p > 0);
+	const out: Sample[] = [];
+	let next = 0;
+	for (const sample of samples) {
+		while (next < usable.length && (usable[next]?.t ?? 0) <= sample.t) {
+			next += 1;
+		}
+		const before = usable[next - 1];
+		const after = usable[next];
+		let rate = before;
+		if (
+			after !== undefined &&
+			(before === undefined || after.t - sample.t < sample.t - before.t)
+		) {
+			rate = after;
+		}
+		if (
+			rate === undefined ||
+			Math.abs(sample.t - rate.t) > RATE_MAX_GAP_SECONDS
+		) {
+			continue;
+		}
+		out.push({
+			t: sample.t,
+			ts: sample.ts,
+			p: Number((sample.p / rate.p).toPrecision(12)),
+		});
+	}
+	return out;
+}
+
 /** Reads all rows of one coin and one source up to `now` (inclusive) and converts them. */
 export async function loadSamples(
 	reader: SeriesReader,

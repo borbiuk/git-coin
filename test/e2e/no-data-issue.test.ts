@@ -54,7 +54,7 @@ test('test phase: four failed runs open the no data Issue, one healthy run close
 	// One healthy run closes it with a comment
 	world.market.down.clear();
 	const back = await runAt(world, plusMinutes(T0, 30 + 6 * 15), options);
-	assert.equal(back.rowsWritten, 40);
+	assert.equal(back.rowsWritten, 44);
 	assert.deepEqual(world.issues.closed, [1]);
 	assert.equal(world.issues.comments.length, 1);
 

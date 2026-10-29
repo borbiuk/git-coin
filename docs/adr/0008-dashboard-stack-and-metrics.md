@@ -79,7 +79,7 @@ Sizes were measured on the minified single-file builds from jsDelivr with `gzip 
 
 ```text
 data/status.json            last point time, last run, failures, last publish, per-coin status
-data/latest.json            latest price, 24h / 7d / 30d change, high and low per period, per coin
+data/latest.json            latest price, 24h / 7d / 30d change, high and low per period, per coin; `quote` is the unit (D7)
 data/alerts.json            last 10 alerts (coin, time, direction, severity, Issue number); severity is `high` (the Issue label `warning`) or `extreme` (`critical`)
 data/coins/<ID>.7d.json     last 7 days at full resolution
 data/coins/<ID>.sources.json  last 7 days at full resolution for each stored source (only while more than one source is stored)
@@ -124,6 +124,19 @@ data/coins/<ID>.daily.json  all history, daily open/high/low/close
 - Dark mode: CSS variables on `:root`, redefined under `prefers-color-scheme: dark`. The chart reads its colours from the CSS variables and redraws when the scheme changes.
 - Accessibility: contrast at least 4.5:1; all controls reachable by keyboard with visible focus; the chart canvas has `role="img"` and an `aria-label` with a one-sentence summary; a `<table>` of the latest values carries the same facts as text; up and down are shown with sign and arrow, not colour alone; banners use `role="status"`.
 - The page needs no cookies, no analytics and no third-party requests. External links go to Kraken, CoinGecko and the repo.
+
+### D7. Prices are shown in USDT (2026-10-30)
+
+- The owner asked for USDT. Decision: convert at build time. The data stays in USD. `config/coins.json` has one more entry, `USDT` with `"role": "rate"`, that the collector fetches like a coin (Kraken `USDTUSD`, Coinbase `USDT-USD`, Bitstamp `usdtusd`, Coin Metrics `usdt`). The site builder divides every price by the rate nearest in time (at most 24 hours away, else the point is dropped) and writes the result with 12 significant digits. `latest.json` has `"quote": "USDT"`. The rate entry itself gets no file and no tab, and its alerts must be off (the config check enforces it).
+- The page reads `quote` from `latest.json` and writes it after the number (`78,864.69 USDT`). The chart axis has no unit name. The footer and the screen reader texts name the unit.
+- Cost: 11 entries per run, so 44 rows per run in the test phase and one more Coinbase request (11 instead of 10). The other sources still need one request. The change was measured against the live sources on 2026-10-30: all four returned the rate (a dry run wrote 44 rows).
+- Alerts do not change. They read the stored USD rows and use percent moves, which the conversion would change only by the move of the rate itself.
+- To go back to USD, set `enabled` to `false` on the rate entry. The builder then writes `"quote": "USD"`.
+- Considered and not chosen:
+    - Real USDT markets for the price. UNVERIFIED for runners, but the catalogues of 2026-10-30 show too few pairs: Kraken lists 9 of 10 coins (no XLM), Coinbase 8 (no BNB, LTC), Bitstamp 3 (BTC, ETH, XRP). Coin Metrics reference rates are in USD only. This would break the four-source test.
+    - USDC instead of USDT: Coinbase has 3 of 10 USDC pairs and Bitstamp 4. As a conversion rate it would work the same way (`USDCUSD` exists on Kraken and Bitstamp, not on Coinbase).
+    - Only a relabel from USD to USDT. It would be wrong: the two differ (USDT was 0.99885 USD on Coin Metrics on 2026-10-29).
+- Open: the rate follows the primary source. If the primary source has no `USDT` row for a day, the prices of that day are missing from the page (a gap), not shown in USD.
 
 ## Consequences
 

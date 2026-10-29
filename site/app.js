@@ -17,7 +17,9 @@ import {
 	formatUtcTime,
 	issueUrl,
 	mergeSources,
+	quoteName,
 	rebase,
+	setQuote,
 	sliceRange,
 	sourceInfo,
 	staleBanner,
@@ -247,7 +249,7 @@ function renderDetail() {
 	const state = staleState(coin.ts, now, limits);
 	const late = state === 'fresh' ? '' : ' This price is old.';
 	$('detail-asof').textContent =
-		`Price of ${formatUtcTime(coin.ts, now)}, in US dollars.${late}`;
+		`Price of ${formatUtcTime(coin.ts, now)}, in ${quoteName()}.${late}`;
 
 	const body = $('stats').querySelector('tbody');
 	body.replaceChildren();
@@ -1204,6 +1206,8 @@ async function loadAll() {
 			app.cache.clear();
 		}
 		app.latest = latest.value;
+		setQuote(app.latest.quote);
+		$('footer-quote').textContent = quoteName();
 	}
 
 	renderFreshness();

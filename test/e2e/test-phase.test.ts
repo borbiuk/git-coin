@@ -33,7 +33,7 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 		assert.deepEqual(result, {
 			exitCode: 0,
 			shouldPublish: false,
-			rowsWritten: 40,
+			rowsWritten: 44,
 		});
 		assertInSync(world.data, world.dataRemote, 'data');
 	}
@@ -42,14 +42,14 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 	const log = remoteLog(world.dataRemote, 'data');
 	assert.equal(log.length, before + 12);
 	for (const entry of log.slice(0, 12)) {
-		assert.match(entry.subject, /^data: 2026-10-29T\d\d:\d\dZ 40 rows$/);
+		assert.match(entry.subject, /^data: 2026-10-29T\d\d:\d\dZ 44 rows$/);
 		assert.equal(entry.name, 'github-actions[bot]');
 		assert.equal(entry.email, BOT_EMAIL);
 	}
 
-	// Ten coins in one day file each. Per coin 48 rows: 12 runs times 4 sources.
+	// Eleven entries (ten coins and the USDT rate) in one day file each. Per coin 48 rows: 12 runs times 4 sources.
 	const files = [...readPriceFiles(world.data).keys()];
-	assert.equal(files.length, 10);
+	assert.equal(files.length, 11);
 	for (const [relative, lines] of readPriceFiles(world.data)) {
 		assert.match(relative, /^2026\/10\/29\/[A-Z]+\.csv$/);
 		assert.equal(lines.length, 1 + 48 + 1, relative);
@@ -82,10 +82,10 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 	const doge = rowsOf(world.data, 'DOGE').filter((row) => row.src === 'cm');
 	assert.match(doge[0]?.price ?? '', /^0\.\d{14}$/);
 
-	// Requests per run: 2 for Kraken, 10 for Coinbase (at most 4 at a time), 1 for Bitstamp and Coin Metrics
+	// Requests per run: 2 for Kraken, 11 for Coinbase (at most 4 at a time), 1 for Bitstamp and Coin Metrics
 	assert.deepEqual(world.market.requests, {
 		kraken: 24,
-		coinbase: 120,
+		coinbase: 132,
 		bitstamp: 12,
 		coinmetrics: 12,
 	});
@@ -103,7 +103,7 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 	assert.ok(
 		lines
 			.slice(1, -1)
-			.every((line) => /^[^,]+,(kr|cb|bs|cm),200,\d+,10,$/.test(line))
+			.every((line) => /^[^,]+,(kr|cb|bs|cm),200,\d+,11,$/.test(line))
 	);
 
 	// The status file
@@ -115,7 +115,7 @@ test('twelve runs in the test phase store four sources, one commit per run, from
 		assert.equal(status.sources[code]?.failures, 0);
 		assert.equal(status.sources[code]?.consecutive_failures, 0);
 	}
-	assert.equal(Object.keys(status.coins).length, 10);
+	assert.equal(Object.keys(status.coins).length, 11);
 	assert.ok(
 		Object.values(status.coins).every((coin) => coin.status === 'ok')
 	);
@@ -162,7 +162,7 @@ test('a dry run on a shallow checkout changes nothing, not even the index', asyn
 	assertInSync(world.data, world.dataRemote, 'data');
 	assert.ok(
 		world.logs.some((line) =>
-			/^dry run: 40 rows would be written/.test(line)
+			/^dry run: 44 rows would be written/.test(line)
 		)
 	);
 	// The status file still shows one request per source

@@ -116,7 +116,8 @@ The collector needs a list of coins with exchange symbols, and settings for vali
 - `settings.stored_sources`: which sources the collector calls and stores. The four-source test enables all four. After the choice (ADR 0002 Revision 3) production lists one. A source listed here needs its id in every enabled coin, or the schema check fails. The reserve sources (CoinGecko Demo, CoinMarketCap Basic, Coinranking) are not listed in v1 and would need a secret first (ADR 0009 D2).
 - `alerts`: overrides of `alert_defaults` (threshold, window, direction, cooldown, `enabled`).
 - `added`: date. `note`: free text for the owner (reason for changes, for example "pair renamed on 2026-11-09").
-- Display currency is global (`settings.quote`). It is `USD` in v1 (ADR 0002).
+- Stored currency is global (`settings.quote`). It is `USD` in v1 (ADR 0002).
+- `role`: only `rate` is allowed. A rate entry (`USDT`) is collected like a coin but is not shown. Its USD price converts the other prices on the page (ADR 0008 D7). At most one entry has the role, and it must set `alerts.enabled` to `false`.
 
 ### D4. Validation
 

@@ -69,16 +69,16 @@ test('a push conflict from a second writer in the middle of a run: the shallow c
 	assert.deepEqual(result, {
 		exitCode: 0,
 		shouldPublish: false,
-		rowsWritten: 40,
+		rowsWritten: 44,
 	});
 	assert.ok(
 		world.logs.some((line) =>
-			line.startsWith('pushed after 2 tries: 40 rows written, 0 skipped')
+			line.startsWith('pushed after 2 tries: 44 rows written, 0 skipped')
 		)
 	);
 	// The sources were asked once, not again for the retry
 	assert.equal(world.market.requests.kraken - requestsBefore.kraken, 2);
-	assert.equal(world.market.requests.coinbase - requestsBefore.coinbase, 10);
+	assert.equal(world.market.requests.coinbase - requestsBefore.coinbase, 11);
 
 	// History: the owner commit is kept, ours is on top, nothing was force pushed
 	const log = remoteLog(world.dataRemote, 'data');
@@ -129,7 +129,7 @@ test('an overlapping run that pushed first with older rows: ours are kept once a
 	};
 	const result = await runAt(world, T0);
 	assert.equal(result.exitCode, 0);
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	for (const coin of world.config.coins) {
 		const rows = rowsOf(world.data, coin.id);
 		assert.equal(rows.length, 8, coin.id);
@@ -178,10 +178,10 @@ test('after a push conflict the commit message counts the rows of the last write
 		}
 	};
 	await runAt(world, T0);
-	// The other run's rows are 1 minute older, so all 40 rows of ours are skipped: the commit holds none
+	// The other run's rows are 1 minute older, so all 44 rows of ours are skipped: the commit holds none
 	const [ours, theirs] = remoteLog(world.dataRemote, 'data');
 	assert.equal(ours?.subject, 'data: 2026-10-29T10:03Z 0 rows');
-	assert.equal(theirs?.subject, 'data: 2026-10-29T10:02Z 40 rows');
+	assert.equal(theirs?.subject, 'data: 2026-10-29T10:02Z 44 rows');
 	assert.equal(readStatus(world.data).consecutive_failures, 0, 'an idle run');
 });
 
@@ -198,7 +198,7 @@ test('after a push conflict where our rows still fit, the message says so', asyn
 	await runAt(world, T0);
 	assert.equal(
 		remoteLog(world.dataRemote, 'data')[0]?.subject,
-		'data: 2026-10-29T10:03Z 40 rows'
+		'data: 2026-10-29T10:03Z 44 rows'
 	);
 });
 
@@ -208,7 +208,7 @@ test('a plain run with one rejected push keeps a correct message too', async () 
 	await runAt(world, T0);
 	assert.equal(
 		remoteLog(world.dataRemote, 'data')[0]?.subject,
-		'data: 2026-10-29T10:03Z 40 rows'
+		'data: 2026-10-29T10:03Z 44 rows'
 	);
 });
 
@@ -239,11 +239,11 @@ test('a rejected push without any new commit on the remote: fetch finds nothing,
 	assert.deepEqual(result, {
 		exitCode: 0,
 		shouldPublish: false,
-		rowsWritten: 40,
+		rowsWritten: 44,
 	});
 	assert.ok(
 		world.logs.some((line) =>
-			line.startsWith('pushed after 2 tries: 40 rows written')
+			line.startsWith('pushed after 2 tries: 44 rows written')
 		)
 	);
 	assert.equal(remoteCount(world.dataRemote, 'data'), 2);
@@ -260,7 +260,7 @@ test('two rejected pushes in a row still end well on the third try', async () =>
 	const world = await makeWorld();
 	rejectPushes(world.dataRemote, 2);
 	const result = await runAt(world, T0);
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assert.ok(
 		world.logs.some((line) => line.startsWith('pushed after 3 tries'))
 	);
@@ -287,7 +287,7 @@ test('three rejected pushes: exit 1, the checkout is left clean at the remote ti
 
 	// The hook accepts again
 	const next = await runAt(world, plusMinutes(T0, 15));
-	assert.equal(next.rowsWritten, 40);
+	assert.equal(next.rowsWritten, 44);
 	// The failed run left nothing behind: the counters count the one good run
 	assert.equal(readStatus(world.data).sources.kr?.requests, 1);
 	assertFileInvariants(world.data, 300);
@@ -302,7 +302,7 @@ test('the remote moved ahead by several commits before the run starts: a stale s
 		});
 	}
 	const result = await runAt(world, plusMinutes(T0, 15));
-	assert.equal(result.rowsWritten, 40);
+	assert.equal(result.rowsWritten, 44);
 	assert.equal(remoteCount(world.dataRemote, 'data'), 1 + 1 + 4 + 1);
 	assertInSync(world.data, world.dataRemote, 'data');
 	for (const coin of world.config.coins) {

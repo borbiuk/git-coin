@@ -167,6 +167,22 @@
 				"coinmetrics_asset": "ltc",
 				"coingecko_id": "litecoin"
 			}
+		},
+		{
+			"id": "USDT",
+			"name": "Tether",
+			"role": "rate",
+			"enabled": true,
+			"added": "2026-10-30",
+			"sources": {
+				"kraken_pair": "USDTUSD",
+				"coinbase_product": "USDT-USD",
+				"bitstamp_market": "usdtusd",
+				"coinmetrics_asset": "usdt",
+				"coingecko_id": "tether"
+			},
+			"alerts": { "enabled": false },
+			"note": "Not a coin on the dashboard. Its USD price is the rate that turns the other prices into USDT."
 		}
 	]
 }

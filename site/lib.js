@@ -70,33 +70,56 @@ function digitsFor(abs) {
 	return abs < 0.01 ? 6 : 4;
 }
 
-/** US dollars with a precision that fits the size of the price. */
+// The unit of the prices. `latest.json` names it: `USD`, or `USDT` when the build converts the prices.
+let quote = 'USD';
+
+export function setQuote(value) {
+	quote = typeof value === 'string' && value !== '' ? value : 'USD';
+}
+
+/** The unit in words, for sentences and screen readers. */
+export function quoteName() {
+	return quote === 'USD' ? 'US dollars' : quote;
+}
+
+/** One number in the unit: a dollar sign for USD, the unit name after the number for any other unit. */
+function formatInUnit(value, digits) {
+	if (quote === 'USD') {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits,
+		}).format(value);
+	}
+	return `${new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: digits,
+		maximumFractionDigits: digits,
+	}).format(value)} ${quote}`;
+}
+
+/** The price in the unit, with a precision that fits the size of the price. */
 export function formatPrice(value) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		return '–';
 	}
-	const digits = digitsFor(Math.abs(value));
-	return new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD',
-		minimumFractionDigits: digits,
-		maximumFractionDigits: digits,
-	}).format(value);
+	return formatInUnit(value, digitsFor(Math.abs(value)));
 }
 
-/** Shorter form for the chart axis: whole dollars from 1,000 up. */
+/** Shorter form for the chart axis: whole units from 1,000 up, and no unit name (the chart title has it). */
 export function formatAxisPrice(value) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		return '';
 	}
 	const abs = Math.abs(value);
 	const digits = abs >= 1000 ? 0 : digitsFor(abs);
-	return new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD',
-		minimumFractionDigits: digits,
-		maximumFractionDigits: digits,
-	}).format(value);
+	if (quote !== 'USD') {
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits,
+		}).format(value);
+	}
+	return formatInUnit(value, digits);
 }
 
 /** Percent change with a sign and an arrow, so colour is never the only cue. */
@@ -470,12 +493,12 @@ export function summarizeSeries(coin, rangeKey, series) {
 	const title = RANGES[rangeKey]?.title ?? rangeKey;
 	const { p } = series;
 	if (p.length === 0) {
-		return `Price chart of ${coin} in US dollars, ${title}: no data in this range.`;
+		return `Price chart of ${coin} in ${quoteName()}, ${title}: no data in this range.`;
 	}
 	const low = Math.min(...p);
 	const high = Math.max(...p);
 	return (
-		`Price chart of ${coin} in US dollars, ${title}: ` +
+		`Price chart of ${coin} in ${quoteName()}, ${title}: ` +
 		`from ${formatPrice(p[0])} to ${formatPrice(p[p.length - 1])}, ` +
 		`low ${formatPrice(low)}, high ${formatPrice(high)}, ${plural(p.length, 'point')}.`
 	);
