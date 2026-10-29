@@ -202,7 +202,7 @@ describe('config', () => {
 		]);
 		assert.deepEqual(config.settings.features, {
 			alerts: false,
-			publish: false,
+			publish: true,
 		});
 		assert.deepEqual(
 			config.coins.map((coin) => coin.id),

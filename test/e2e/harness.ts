@@ -39,6 +39,16 @@ delete process.env.GIT_INDEX_FILE;
 const REPO_ROOT = join(import.meta.dirname, '..', '..');
 const REAL_CONFIG = join(REPO_ROOT, 'config', 'coins.json');
 
+/**
+ * The real config with publishing turned off, so the e2e tests do not depend on the
+ * live `features.publish` switch. A test turns it on with its own patch.
+ */
+function readRealConfig(): Config {
+	const raw = JSON.parse(readFileSync(REAL_CONFIG, 'utf8')) as Config;
+	raw.settings.features.publish = false;
+	return raw;
+}
+
 const roots: string[] = [];
 
 /** Removes the temp directories of the worlds that this test file made. Call once per file. */
@@ -512,7 +522,7 @@ export async function makeWorld(opts: WorldOptions = {}): Promise<World> {
 		'main',
 		{
 			'README.md': 'The code branch.\n',
-			'config/coins.json': readFileSync(REAL_CONFIG, 'utf8'),
+			'config/coins.json': JSON.stringify(readRealConfig(), null, '\t'),
 		},
 		opts.mainDate ?? null
 	);
@@ -525,7 +535,7 @@ export async function makeWorld(opts: WorldOptions = {}): Promise<World> {
 	git(other, 'config', 'user.name', 'Owner');
 	git(other, 'config', 'user.email', 'owner@example.test');
 
-	const raw = JSON.parse(readFileSync(REAL_CONFIG, 'utf8')) as Config;
+	const raw = readRealConfig();
 	opts.patch?.(raw);
 	const configPath = join(root, 'config.json');
 	writeFileSync(configPath, JSON.stringify(raw, null, '\t'));
