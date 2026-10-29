@@ -18,6 +18,7 @@ export default [
 			'out/**',
 			'code/**',
 			'data/**',
+			'.claude/worktrees/**',
 		],
 	},
 	// A stale `eslint-disable` comment fails the run

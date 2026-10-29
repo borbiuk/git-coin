@@ -15,6 +15,9 @@ node_modules/
 # logs
 npm-debug.log
 
+# worktrees of the agents (docs/implementation/plan.md)
+/.claude/worktrees/
+
 # local agent settings
 .claude/settings.local.json
 CLAUDE.local.md

@@ -23,6 +23,8 @@
 	],
 	"ignores": [
 		"node_modules/**",
+		// Worktrees of the agents
+		".claude/worktrees/**",
 		// Boilerplate text
 		"CODE_OF_CONDUCT.md",
 	],

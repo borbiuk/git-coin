@@ -4,3 +4,4 @@ site/vendor
 out
 /code
 /data
+.claude/worktrees
