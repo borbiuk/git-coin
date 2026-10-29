@@ -133,8 +133,8 @@ Commit counts per year at 100% delivery: 105,120 (5 min), 52,560 (10 min), 35,04
 
 ### D2. Commit policy
 
-- One commit per successful run, on `data`, only when at least one row was appended. Commit message: `data: 2026-10-29T14:03Z 10 rows` (simple English, no personal data).
-- No commit on failed runs and no commit of error bodies.
+- One commit per run, on `data`. Commit message: `data: 2026-10-29T14:03Z 10 rows` (simple English, no personal data). A run where every source failed appends no price rows but still commits `state/status.json` and the request log (D7), so the dashboard and the source analysis see the failure (decided while building the collector, ADR 0005 and `src/collect.ts`). The alert state goes into its own commit `state: alerts <ts>` after the data push, only when it changed.
+- No commit of error bodies, and no commit when the run did not change any tracked file.
 - The first commit of the day is not special.
 - Switch trigger: if the pack size on GitHub exceeds 500 MB, or the `data` branch exceeds 250,000 commits, change to hourly batching or squash old data (see D5).
 
@@ -158,7 +158,7 @@ A row is written only if all checks pass:
 
 Four-source test (ADR 0002 Revision 2): checks 3 and 4 are off. Rows are stored as received, and deviations are measured offline.
 
-On a rejected value: write nothing for that coin, count it in `status.json` (`rejected_count`, `last_reject_reason`), and print a log line. When all sources fail, the run writes no rows, makes no commit, exits with code 0 (an expected data failure), and increments `consecutive_failures` in `status.json`. After 4 consecutive failed runs the collector opens one deduplicated Issue `[collector] no data` (label `collector`) and closes it when data returns. An unexpected exception (a bug) exits non-zero so the Actions failure email fires (ADR 0009).
+On a rejected value: write nothing for that coin, count it in `status.json` (`rejected_count`, `last_reject_reason`), and print a log line. When all sources fail, the run writes no price rows, commits only the status file and the request log (D2), exits with code 0 (an expected data failure), and increments `consecutive_failures` in `status.json`. After 4 consecutive failed runs the collector opens one deduplicated Issue `[collector] no data` (label `collector`) and closes it when data returns. An unexpected exception (a bug) exits non-zero so the Actions failure email fires (ADR 0009).
 
 ### D5. Retention and downsampling
 

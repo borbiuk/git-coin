@@ -80,7 +80,7 @@ The repo is public and runs a scheduled bot with write access. Nothing in the de
 
 - The collector prints one structured line per coin and per run (coin, status, price, reason if rejected) and a short summary in the job summary. It never prints headers, tokens or response bodies. Redaction is the default: the script has no path that logs a token.
 - Retries: one retry with a 2-second backoff for network errors and HTTP 5xx. HTTP 429: no retry; skip the source for this run. Timeouts: 10 seconds per request.
-- When every source fails: no rows, no commit, exit 0, increment `consecutive_failures` (ADR 0004 D4). After 4 failures in a row, one deduplicated Issue `[collector] no data`.
+- When every source fails: no price rows, a commit of the status file and the request log only, exit 0, increment `consecutive_failures` (ADR 0004 D4). After 4 failures in a row, one deduplicated Issue `[collector] no data`.
 - When the config or the code is broken: exit non-zero, so the owner gets the failed-run email (set Settings, Notifications, Actions, "Only notify for failed workflows").
 
 ### D6. Testing strategy
