@@ -1,0 +1,5 @@
+# Used by actionlint (the `config` job in .github/workflows/build.yml).
+# The runner label is pinned on purpose (ADR 0003). An older actionlint can report it as unknown.
+self-hosted-runner:
+    labels:
+        - ubuntu-26.04
