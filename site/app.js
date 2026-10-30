@@ -15,6 +15,7 @@ import {
 	formatLastUpdated,
 	formatPrice,
 	formatUtcTime,
+	historyNote,
 	issueUrl,
 	mergeSources,
 	quoteName,
@@ -124,6 +125,10 @@ function renderSource() {
 	box.append('Source: ');
 	box.append(info.url ? link(info.url, info.name) : info.name);
 	box.append(`. Quote: ${app.latest.quote}.`);
+	const history = historyNote(app.latest.history, Date.now());
+	if (history) {
+		box.append(` ${history}`);
+	}
 	if (info.credit) {
 		box.append(
 			` ${info.credit.text} `,

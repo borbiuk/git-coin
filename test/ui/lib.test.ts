@@ -175,6 +175,16 @@ test('staleBanner has text for delayed, stopped and unknown only', () => {
 	);
 });
 
+test('historyNote names the source and the time where the older prices end', () => {
+	const now = Date.parse('2026-10-30T10:00:00Z');
+	assert.equal(
+		lib.historyNote({ src: 'bs-ohlc', until: '2026-10-29T20:46:24Z' }, now),
+		'Prices before 29 Oct 20:46 UTC are 15-minute candle closes from Bitstamp.'
+	);
+	assert.equal(lib.historyNote(undefined, now), '');
+	assert.equal(lib.historyNote({ src: 'bs-ohlc' }, now), '');
+});
+
 test('sourceInfo names the source and links it', () => {
 	assert.equal(lib.sourceInfo('kr').name, 'Kraken');
 	assert.equal(lib.sourceInfo('kr-ohlc').name, 'Kraken');

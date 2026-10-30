@@ -17,12 +17,17 @@ import {
 	periodStats,
 	recentPoints,
 	sourcePoints,
+	withHistory,
 } from './site/derive.ts';
+import type { Sample } from './site/derive.ts';
 import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
 import { isoSeconds, parseIso } from './time.ts';
 import { SRC_CODE } from './types.ts';
-import type { Config, DerivedLatest } from './types.ts';
+import type { Config, DerivedLatest, SrcCode } from './types.ts';
+
+/** Backfilled rows that fill the time before the first live row (tools/backfill-bitstamp.ts). */
+const HISTORY_SRC: SrcCode = 'bs-ohlc';
 
 const SAFE_COIN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
@@ -62,16 +67,26 @@ export async function buildSite(opts: {
 		src,
 		coins: {},
 	};
-	const rates =
-		rateCoin === undefined || firstDay === null
-			? []
-			: await loadSamples(
-					reader,
-					rateCoin.id,
-					`${firstDay}T00:00:00Z`,
-					now,
-					src
-				);
+	// The history and the live rows of one entry, joined in time order. `until` is where the live rows begin.
+	let historyUntil = null as string | null;
+	async function readJoined(id: string): Promise<Sample[]> {
+		if (firstDay === null) {
+			return [];
+		}
+		const from = `${firstDay}T00:00:00Z`;
+		const live = await loadSamples(reader, id, from, now, src);
+		const history = await loadSamples(reader, id, from, now, HISTORY_SRC);
+		const joined = withHistory(history, live);
+		const until = live[0]?.ts ?? history[history.length - 1]?.ts;
+		if (joined.length > live.length && until !== undefined) {
+			historyUntil =
+				historyUntil === null || until < historyUntil
+					? until
+					: historyUntil;
+		}
+		return joined;
+	}
+	const rates = rateCoin === undefined ? [] : await readJoined(rateCoin.id);
 
 	for (const coin of config.coins) {
 		if (!SAFE_COIN_ID.test(coin.id)) {
@@ -80,16 +95,7 @@ export async function buildSite(opts: {
 		if (coin.role === 'rate') {
 			continue;
 		}
-		const loaded =
-			firstDay === null
-				? []
-				: await loadSamples(
-						reader,
-						coin.id,
-						`${firstDay}T00:00:00Z`,
-						now,
-						src
-					);
+		const loaded = await readJoined(coin.id);
 		const samples =
 			rateCoin === undefined ? loaded : convertSamples(loaded, rates);
 		// A disabled coin with no rows has nothing to show; a disabled coin with rows stays as an archive
@@ -163,6 +169,9 @@ export async function buildSite(opts: {
 		);
 	}
 
+	if (historyUntil !== null) {
+		latest.history = { src: HISTORY_SRC, until: historyUntil };
+	}
 	await writeJson(join(outDir, 'latest.json'), latest);
 	await writeJson(
 		join(outDir, 'status.json'),

@@ -45,6 +45,18 @@ export function toSamples(points: PricePoint[]): Sample[] {
 	return samples;
 }
 
+/**
+ * The history first, then the live samples. A history sample at or after the first live sample is dropped,
+ * so the two sources never overlap. Both lists are in time order.
+ */
+export function withHistory(history: Sample[], live: Sample[]): Sample[] {
+	const first = live[0];
+	if (first === undefined) {
+		return history;
+	}
+	return [...history.filter((sample) => sample.t < first.t), ...live];
+}
+
 /** A price is matched to a rate at most this far away in time. */
 export const RATE_MAX_GAP_SECONDS = 24 * 3600;
 

@@ -10,6 +10,7 @@ import {
 	periodStats,
 	recentPoints,
 	toSamples,
+	withHistory,
 } from '../../src/site/derive.ts';
 import type { Sample } from '../../src/site/derive.ts';
 import type { PricePoint, SeriesReader } from '../../src/types.ts';
@@ -298,4 +299,23 @@ test('convertSamples rounds the result to 12 significant digits', () => {
 	);
 	assert.equal(out[0]?.p, Number((78774 / 0.99885).toPrecision(12)));
 	assert.ok(String(out[0]?.p).length <= 14);
+});
+
+test('withHistory puts the history first and drops history at or after the first live sample', () => {
+	const history = [
+		sample('2026-10-28T10:00:00Z', 1),
+		sample('2026-10-28T10:15:00Z', 2),
+		sample('2026-10-29T10:00:00Z', 3),
+		sample('2026-10-29T10:15:00Z', 4),
+	];
+	const live = [
+		sample('2026-10-29T10:15:00Z', 40),
+		sample('2026-10-29T11:00:00Z', 50),
+	];
+	assert.deepEqual(
+		withHistory(history, live).map((item) => item.p),
+		[1, 2, 3, 40, 50]
+	);
+	assert.deepEqual(withHistory(history, []), history);
+	assert.deepEqual(withHistory([], live), live);
 });

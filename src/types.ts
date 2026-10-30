@@ -175,6 +175,8 @@ export interface DerivedLatest {
 	/** The unit of every price in the derived files: the id of the rate entry (`USDT`) when the config has one, else `USD`. */
 	quote: string;
 	src: SrcCode;
+	/** Set when older prices come from a backfill source: they end where the live rows begin (`until`). */
+	history?: { src: SrcCode; until: string };
 	coins: Record<
 		string,
 		{

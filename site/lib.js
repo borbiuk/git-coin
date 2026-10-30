@@ -188,6 +188,15 @@ export function formatUtcTime(iso, nowMs) {
 	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${time}`;
 }
 
+/** One sentence that tells where the older prices come from, or an empty text when there is no history. */
+export function historyNote(history, nowMs) {
+	if (!history || typeof history.until !== 'string') {
+		return '';
+	}
+	const name = sourceInfo(history.src).name;
+	return `Prices before ${formatUtcTime(history.until, nowMs)} are 15-minute candle closes from ${name}.`;
+}
+
 /** "Last updated 14:03 UTC (12 minutes ago)". `iso` is `last_point_at`. */
 export function formatLastUpdated(iso, nowMs) {
 	const ms = typeof iso === 'string' ? Date.parse(iso) : NaN;

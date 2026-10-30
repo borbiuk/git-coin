@@ -618,6 +618,8 @@ test('an enabled rate entry converts the prices, is not shown, and a disabled on
 		coins: Record<string, { price: number }>;
 	}>('latest.json');
 	assert.equal(latest.quote, 'USDT');
+	// No backfilled rows in this tree: no history field
+	assert.equal('history' in latest, false);
 	assert.equal(latest.coins.BTC?.price, 400);
 	assert.equal(latest.coins.USDT, undefined);
 	assert.deepEqual(await readOut('coins/BTC.7d.json'), {
@@ -658,4 +660,55 @@ test('an enabled rate entry converts the prices, is not shown, and a disabled on
 	};
 	assert.equal(usd.quote, 'USD');
 	assert.equal(usd.coins.BTC?.price, 300);
+});
+
+test('backfilled rows fill the time before the first live row, are converted, and the page is told', async () => {
+	await writeDay(root, 'BTC', '2026-10-27', [
+		'2026-10-27T12:15:00Z,100,bs-ohlc,',
+		'2026-10-27T12:30:00Z,110,bs-ohlc,',
+	]);
+	await writeDay(root, 'BTC', '2026-10-28', [
+		'2026-10-28T12:00:00Z,200,kr,',
+		// at or after the first live row: dropped from the history
+		'2026-10-28T12:15:00Z,999,bs-ohlc,',
+		'2026-10-28T13:00:00Z,300,kr,',
+	]);
+	await writeDay(root, 'USDT', '2026-10-27', [
+		'2026-10-27T12:15:00Z,0.5,bs-ohlc,',
+	]);
+	await writeDay(root, 'USDT', '2026-10-28', [
+		'2026-10-28T12:00:00Z,0.5,kr,',
+	]);
+	const config = await loadFixtureConfig();
+	config.coins.push({
+		id: 'USDT',
+		name: 'Tether',
+		role: 'rate',
+		enabled: true,
+		added: '2026-10-27',
+		sources: { kraken_pair: 'USDTUSD' },
+		alerts: { enabled: false },
+	});
+	await buildSite({ dataRoot: root, config, outDir: out, now: NOW });
+	const latest = await readOut<{
+		src: string;
+		history?: { src: string; until: string };
+		coins: Record<string, { price: number }>;
+	}>('latest.json');
+	assert.equal(latest.src, 'kr');
+	assert.deepEqual(latest.history, {
+		src: 'bs-ohlc',
+		until: '2026-10-28T12:00:00Z',
+	});
+	assert.equal(latest.coins.BTC?.price, 600);
+	const seven = await readOut<{ t: number[]; p: number[] }>(
+		'coins/BTC.7d.json'
+	);
+	assert.deepEqual(seven.p, [200, 220, 400, 600]);
+	assert.deepEqual(seven.t, [
+		epoch('2026-10-27T12:15:00Z'),
+		epoch('2026-10-27T12:30:00Z'),
+		epoch('2026-10-28T12:00:00Z'),
+		epoch('2026-10-28T13:00:00Z'),
+	]);
 });

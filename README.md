@@ -80,6 +80,7 @@ On GitHub, the same dry run is the `collect` workflow started by hand with the i
 - **Freshness.** GitHub documents a 5-minute minimum for scheduled workflows, but delivers far fewer runs, and late. Expect gaps. The dashboard does not promise minute-level data and shows a banner when the data is late or stopped.
 - **Alerts are late too.** An alert needs a run, so it can come hours late. A fast spike that reverses between two samples is not seen. Do not use the alerts for trading.
 - **Prices are exchange prices.** They are last trade prices or reference rates in USD (shown in USDT on the page), and they differ a little between sources.
+- **History.** Prices before 2026-10-29 are 15-minute candle closes from Bitstamp (backfilled once, from 2024-01-01), not live Kraken prices. Thin markets have gaps, and BNB starts on 2025-12-16.
 - **Test data.** The first 14 days store four sources side by side. See the test period note above.
 - **Terms of the sources.** Some sources do not clearly allow storing or showing their data in public. Coinbase's market data terms forbid display and redistribution. This was a known and accepted risk of the test ([ADR 0002](docs/adr/0002-data-sources.md), Revision 2).
 - **No history rewrite.** The `data` branch is append-only. Rows that were committed stay in the history, and forks and clones keep copies.
