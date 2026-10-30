@@ -471,6 +471,93 @@ footer {
 	font-variant-numeric: tabular-nums;
 }
 
+/* A chart with its controls can fill the whole page: a bar with the name and the button, then the controls,
+   the chart (it takes the height that is left) and the notes. app.js sets the class and the dialog role. */
+.panel-bar {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.panel-title {
+	margin: 0;
+	font-size: 1rem;
+}
+
+.panel-bar .panel-title {
+	display: none;
+	flex: 1;
+	min-width: 0;
+}
+
+.panel-bar .panel-title.always {
+	display: block;
+}
+
+.expand {
+	min-height: 44px;
+	padding: 0 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--text);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+.panel.is-expanded {
+	position: fixed;
+	inset: 0;
+	z-index: 30;
+	display: flex;
+	flex-direction: column;
+	overflow: auto;
+	padding: max(12px, env(safe-area-inset-top))
+		max(16px, env(safe-area-inset-right))
+		max(12px, env(safe-area-inset-bottom))
+		max(16px, env(safe-area-inset-left));
+	background: var(--bg);
+}
+
+.panel.is-expanded > * {
+	flex: none;
+}
+
+.panel.is-expanded .panel-bar .panel-title {
+	display: block;
+	font-size: 1.125rem;
+}
+
+.panel.is-expanded .chart {
+	flex: 1 1 0;
+	min-height: 160px;
+	overflow: hidden;
+}
+
+/* A phone held sideways: smaller buttons and no side notes, so the chart keeps most of the height */
+@media (max-height: 500px) {
+	.panel.is-expanded .chip,
+	.panel.is-expanded .expand {
+		min-height: 36px;
+	}
+
+	.panel.is-expanded .ranges {
+		gap: 6px;
+		margin: 6px 0;
+	}
+
+	.panel.is-expanded .muted:not(.readout) {
+		display: none;
+	}
+}
+
+body.has-panel-open {
+	overflow: hidden;
+}
+
 /* A drag along the chart moves the crosshair (app.js), a drag up or down still scrolls the page */
 .u-over {
 	touch-action: pan-y;

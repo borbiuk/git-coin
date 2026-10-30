@@ -472,7 +472,15 @@ function cssVar(name) {
 		.trim();
 }
 
-function chartHeight() {
+// The height of a chart: a share of the screen, or all that the box has left when its panel fills the page
+function chartHeight(host) {
+	if (host.closest('.panel.is-expanded')) {
+		const legend = host.querySelector('.u-legend');
+		return Math.max(
+			160,
+			host.clientHeight - (legend ? legend.offsetHeight : 0)
+		);
+	}
 	return Math.round(Math.min(420, Math.max(220, window.innerHeight * 0.38)));
 }
 
@@ -738,7 +746,7 @@ function drawChart(series) {
 	app.chart = new UPlot(
 		{
 			width: Math.max(host.clientWidth, 200),
-			height: chartHeight(),
+			height: chartHeight(host),
 			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
 			// The readout above the chart replaces the legend, which showed empty values until a point was touched
 			legend: { show: false },
@@ -800,6 +808,7 @@ function destroyCompare() {
 }
 
 function hideCompare() {
+	closePanelOf('compare-panel');
 	destroyCompare();
 	$('compare').hidden = true;
 }
@@ -919,7 +928,7 @@ function drawCompare(sources) {
 	app.compare = new UPlot(
 		{
 			width: Math.max(host.clientWidth, 200),
-			height: chartHeight(),
+			height: chartHeight(host),
 			// Room on the right for the names of the lines
 			padding: [8, 104, 0, 0],
 			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
@@ -1033,6 +1042,7 @@ function destroyMulti() {
 }
 
 function hideMulti() {
+	closePanelOf('multi-panel');
 	destroyMulti();
 	$('multi').hidden = true;
 }
@@ -1210,7 +1220,7 @@ function drawMulti() {
 	app.multi.chart = new UPlot(
 		{
 			width: Math.max(host.clientWidth, 200),
-			height: chartHeight(),
+			height: chartHeight(host),
 			// Room on the right for the names at the ends of the lines
 			padding: [8, compact ? 64 : 112, 0, 0],
 			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
@@ -1576,6 +1586,134 @@ async function loadAll() {
 	loadMulti();
 }
 
+// Sizes every chart to its box. It runs when a box changes its size, and when a panel enters or leaves the
+// full page view (the box can keep its size then).
+function fitCharts() {
+	const items = [
+		[app.chart, $('chart')],
+		[app.compare, $('compare-chart')],
+		[app.multi.chart, $('multi-chart')],
+	];
+	for (const [chart, host] of items) {
+		if (!chart || host.clientWidth === 0) {
+			continue;
+		}
+		// The names at the line ends are short on a narrow screen, so a change of the width class redraws
+		if (
+			chart === app.multi.chart &&
+			app.multi.compact !== host.clientWidth < 480
+		) {
+			drawMulti();
+			continue;
+		}
+		chart.setSize({ width: host.clientWidth, height: chartHeight(host) });
+	}
+}
+
+// ----- a chart on the whole page
+
+const PANELS = {
+	'chart-panel': () =>
+		`${app.latest?.coins[app.coin]?.name ?? ''} (${app.coin}), ${RANGES[app.range].title}`,
+	'compare-panel': () => `${app.coin}: source comparison, last 7 days`,
+	'multi-panel': () =>
+		`Coin comparison, ${RANGES[app.multi.range].title}, percent change`,
+};
+
+// The panel that fills the page, with what is needed to put it back
+let openPanel = null;
+
+function showPanel(node) {
+	closePanel();
+	const title = $(`${node.id}-title`);
+	const button = node.querySelector('.expand');
+	openPanel = { node, title, button, was: title.textContent };
+	title.textContent = PANELS[node.id]();
+	node.classList.add('is-expanded');
+	node.setAttribute('role', 'dialog');
+	node.setAttribute('aria-modal', 'true');
+	node.setAttribute('aria-labelledby', title.id);
+	button.setAttribute('aria-expanded', 'true');
+	button.setAttribute('aria-label', 'Close the whole page view');
+	button.replaceChildren(
+		el('span', { 'aria-hidden': 'true', text: '✕' }),
+		' Close'
+	);
+	document.body.classList.add('has-panel-open');
+	fitCharts();
+	button.focus();
+}
+
+function closePanel() {
+	if (!openPanel) {
+		return;
+	}
+	const { node, title, button, was } = openPanel;
+	openPanel = null;
+	title.textContent = was;
+	node.classList.remove('is-expanded');
+	node.removeAttribute('role');
+	node.removeAttribute('aria-modal');
+	node.removeAttribute('aria-labelledby');
+	button.setAttribute('aria-expanded', 'false');
+	button.setAttribute('aria-label', button.dataset.label);
+	button.replaceChildren(
+		el('span', { 'aria-hidden': 'true', text: '⤢' }),
+		' Expand'
+	);
+	document.body.classList.remove('has-panel-open');
+	fitCharts();
+	button.focus();
+}
+
+// A panel whose chart is gone (for example a coin without a source comparison) cannot stay open
+function closePanelOf(id) {
+	if (openPanel?.node.id === id) {
+		closePanel();
+	}
+}
+
+function initPanels() {
+	for (const node of document.querySelectorAll('.panel')) {
+		const button = node.querySelector('.expand');
+		button.dataset.label = button.getAttribute('aria-label');
+		button.addEventListener('click', () => {
+			if (openPanel?.node === node) {
+				closePanel();
+			} else {
+				showPanel(node);
+			}
+		});
+	}
+	document.addEventListener('keydown', (event) => {
+		if (!openPanel) {
+			return;
+		}
+		if (event.key === 'Escape') {
+			closePanel();
+			return;
+		}
+		if (event.key !== 'Tab') {
+			return;
+		}
+		// Keep the focus inside the panel: it covers the page, which must not be reached by Tab
+		const items = [
+			...openPanel.node.querySelectorAll(
+				'button, input, a[href], [tabindex="0"]'
+			),
+		].filter((item) => item.offsetParent !== null);
+		const first = items[0];
+		const last = items[items.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	});
+}
+
 function start() {
 	app.range = parseHash(location.hash).range ?? app.range;
 	renderRanges();
@@ -1607,38 +1745,10 @@ function start() {
 			selectCoin(coin);
 		}
 	});
-	new ResizeObserver(() => {
-		const host = $('chart');
-		if (app.chart && host.clientWidth > 0) {
-			app.chart.setSize({
-				width: host.clientWidth,
-				height: chartHeight(),
-			});
-		}
-	}).observe($('chart'));
-	new ResizeObserver(() => {
-		const host = $('compare-chart');
-		if (app.compare && host.clientWidth > 0) {
-			app.compare.setSize({
-				width: host.clientWidth,
-				height: chartHeight(),
-			});
-		}
-	}).observe($('compare-chart'));
-	new ResizeObserver(() => {
-		const host = $('multi-chart');
-		if (app.multi.chart && host.clientWidth > 0) {
-			// The names at the line ends are short on a narrow screen, so a change of the width class redraws
-			if (app.multi.compact !== host.clientWidth < 480) {
-				drawMulti();
-				return;
-			}
-			app.multi.chart.setSize({
-				width: host.clientWidth,
-				height: chartHeight(),
-			});
-		}
-	}).observe($('multi-chart'));
+	for (const id of ['chart', 'compare-chart', 'multi-chart']) {
+		new ResizeObserver(fitCharts).observe($(id));
+	}
+	initPanels();
 }
 
 start();

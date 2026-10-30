@@ -565,6 +565,25 @@ test('index.html loads only files of its own origin', () => {
 	}
 });
 
+test('every chart sits in a panel with a button that can show it on the whole page', () => {
+	const html = readFileSync(join(siteDir, 'index.html'), 'utf8');
+	const app = readFileSync(join(siteDir, 'app.js'), 'utf8');
+	for (const chart of ['chart', 'compare-chart', 'multi-chart']) {
+		const panel =
+			chart === 'chart' ? 'chart-panel' : chart.replace('chart', 'panel');
+		assert.match(
+			html,
+			new RegExp(
+				`id="${panel}"[^>]*class="panel"|class="panel"[^>]*id="${panel}"`
+			)
+		);
+		assert.match(html, new RegExp(`aria-controls="${panel}"`));
+		assert.match(html, new RegExp(`id="${panel}-title"`));
+		assert.match(app, new RegExp(`'${panel}':`));
+	}
+	assert.equal(html.match(/class="expand"/g)?.length, 3);
+});
+
 test('app.js records the vendored uPlot version and fetches only own data files', () => {
 	const app = readFileSync(join(siteDir, 'app.js'), 'utf8');
 	assert.match(app.split('\n').slice(0, 3).join('\n'), /uPlot 1\.6\.32/);

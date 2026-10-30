@@ -108,24 +108,60 @@
 					</table>
 				</div>
 
-				<h3 class="chart-title">Price chart</h3>
-				<div
-					id="ranges"
-					class="ranges"
-					role="group"
-					aria-label="Chart range"
-				></div>
-				<p id="chart-readout" class="readout" aria-hidden="true"></p>
-				<div id="chart" class="chart" role="img"></div>
-				<p id="chart-caption" class="muted"></p>
-				<p id="chart-status" class="muted" role="status"></p>
+				<div id="chart-panel" class="panel">
+					<div class="panel-bar">
+						<h3
+							id="chart-panel-title"
+							class="chart-title panel-title always"
+						>
+							Price chart
+						</h3>
+						<button
+							type="button"
+							class="expand"
+							aria-expanded="false"
+							aria-controls="chart-panel"
+							aria-label="Show the price chart on the whole page"
+						>
+							<span aria-hidden="true">⤢</span> Expand
+						</button>
+					</div>
+					<div
+						id="ranges"
+						class="ranges"
+						role="group"
+						aria-label="Chart range"
+					></div>
+					<p
+						id="chart-readout"
+						class="readout"
+						aria-hidden="true"
+					></p>
+					<div id="chart" class="chart" role="img"></div>
+					<p id="chart-caption" class="muted"></p>
+					<p id="chart-status" class="muted" role="status"></p>
+				</div>
 
 				<details id="compare" class="more" hidden>
 					<summary id="compare-title">
 						Source comparison, last 7 days
 					</summary>
-					<div id="compare-chart" class="chart" role="img"></div>
-					<p id="compare-note" class="muted"></p>
+					<div id="compare-panel" class="panel">
+						<div class="panel-bar">
+							<p id="compare-panel-title" class="panel-title"></p>
+							<button
+								type="button"
+								class="expand"
+								aria-expanded="false"
+								aria-controls="compare-panel"
+								aria-label="Show the source comparison on the whole page"
+							>
+								<span aria-hidden="true">⤢</span> Expand
+							</button>
+						</div>
+						<div id="compare-chart" class="chart" role="img"></div>
+						<p id="compare-note" class="muted"></p>
+					</div>
 				</details>
 			</section>
 
@@ -135,22 +171,36 @@
 					Change in percent, so coins of any price share one chart.
 					The 0% line is the base you choose.
 				</p>
-				<div
-					id="multi-ranges"
-					class="ranges"
-					role="group"
-					aria-label="Range of the comparison"
-				></div>
-				<p id="multi-base-label" class="muted">0% is the:</p>
-				<div
-					id="multi-base"
-					class="ranges"
-					role="group"
-					aria-labelledby="multi-base-label"
-				></div>
-				<div id="multi-chart" class="chart" role="img"></div>
-				<p id="multi-readout" class="muted" aria-hidden="true"></p>
-				<p id="multi-note" class="muted" role="status"></p>
+				<div id="multi-panel" class="panel">
+					<div class="panel-bar">
+						<p id="multi-panel-title" class="panel-title"></p>
+						<button
+							type="button"
+							class="expand"
+							aria-expanded="false"
+							aria-controls="multi-panel"
+							aria-label="Show the coin comparison on the whole page"
+						>
+							<span aria-hidden="true">⤢</span> Expand
+						</button>
+					</div>
+					<div
+						id="multi-ranges"
+						class="ranges"
+						role="group"
+						aria-label="Range of the comparison"
+					></div>
+					<p id="multi-base-label" class="muted">0% is the:</p>
+					<div
+						id="multi-base"
+						class="ranges"
+						role="group"
+						aria-labelledby="multi-base-label"
+					></div>
+					<div id="multi-chart" class="chart" role="img"></div>
+					<p id="multi-readout" class="muted" aria-hidden="true"></p>
+					<p id="multi-note" class="muted" role="status"></p>
+				</div>
 				<div class="multi-actions">
 					<button type="button" id="multi-all" class="link-button">
 						Show all

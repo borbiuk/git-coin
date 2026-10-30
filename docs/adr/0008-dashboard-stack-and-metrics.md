@@ -153,6 +153,7 @@ An audit of the live page on a phone (375 px and 320 px) and a research of 10 to
 - The link is `#BTC/7d` (coin and range). An old link with only the coin still works.
 - Gap note under the chart tells how much of the range was filled with candles.
 - Checkboxes are 24 px (their label is 44 px). Safe-area insets and `theme-color` are set.
+- Full page view (2026-10-30): every chart (price, source comparison, coin comparison) has an "Expand" button. The chart and its controls become a fixed layer over the page (`.panel.is-expanded`, a dialog with `aria-modal`); the chart takes the height that is left. "Close" or Escape puts it back and returns the focus to the button; Tab stays inside the layer. It is CSS, not the Fullscreen API, because iPhone Safari has the API for video only. The checkboxes of the coin table are not in the layer, so the lines cannot be changed there. On a phone held sideways the buttons are smaller and the side notes are hidden.
 - Not done, on purpose: log scale, candlesticks, a UTC/local switch, small multiples, hiding range buttons that lack data (the history starts in 2024, so every range has data).
 - Research limits: some sources were not readable (403, PDF). The claims about Binance, Kraken and the exact CoinGecko layout have no first-hand source. The touch behaviour was checked with synthetic pointer events in a desktop browser, not on a real phone.
 
