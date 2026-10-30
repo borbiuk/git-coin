@@ -130,7 +130,7 @@ The collector needs a list of coins with exchange symbols, and settings for vali
 1. Open the config file in the GitHub web editor (or a local clone) on a branch and add an object to `coins`.
 2. Fill `id`, `name`, the id of each source in `settings.stored_sources` (for example `kraken_pair`), `coingecko_id`, `added`. Open a pull request.
 3. CI checks schema and symbol. Merge when green.
-4. The new coin starts collecting at the next run. Its history begins at its first row. No backfill is created automatically (backfill is a manual feature, ADR 0005).
+4. The new coin starts collecting at the next run. Its history begins at its first row. No history is created for it. The gap fill (ADR 0005 D8) starts after its first row.
 
 An Issue form or a dispatch input can be added later if outside contributors appear. Not now.
 

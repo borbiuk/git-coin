@@ -9,6 +9,7 @@ import {
 	NINETY_DAYS_SECONDS,
 	PERIODS,
 	SEVEN_DAYS_SECONDS,
+	clipSpans,
 	convertSamples,
 	dailyCandles,
 	emptyPoints,
@@ -17,14 +18,14 @@ import {
 	periodStats,
 	recentPoints,
 	sourcePoints,
-	withHistory,
+	joinHistory,
 } from './site/derive.ts';
-import type { Sample } from './site/derive.ts';
+import type { Sample, Span } from './site/derive.ts';
 import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
 import { isoSeconds, parseIso } from './time.ts';
 import { SRC_CODE } from './types.ts';
-import type { Config, DerivedLatest, SrcCode } from './types.ts';
+import type { Config, DerivedLatest, SeriesPoints, SrcCode } from './types.ts';
 
 /** Backfilled rows that fill the time before the first live row (tools/backfill-bitstamp.ts). */
 const HISTORY_SRC: SrcCode = 'bs-ohlc';
@@ -36,6 +37,16 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 	const temp = `${path}.tmp`;
 	await writeFile(temp, `${JSON.stringify(value)}\n`);
 	await rename(temp, path);
+}
+
+/** The series with the spans of filled gaps that lie in its time range. No span, no field. */
+function withFilled(
+	series: SeriesPoints,
+	filled: Span[],
+	fromSec: number
+): SeriesPoints {
+	const spans = clipSpans(filled, fromSec);
+	return spans.length === 0 ? series : { ...series, filled: spans };
 }
 
 export async function buildSite(opts: {
@@ -68,17 +79,20 @@ export async function buildSite(opts: {
 		coins: {},
 	};
 	// The history and the live rows of one entry, joined in time order. `until` is where the live rows begin.
+	// `filled` is the time of missed runs that the collector filled with candles.
 	let historyUntil = null as string | null;
-	async function readJoined(id: string): Promise<Sample[]> {
+	async function readJoined(
+		id: string
+	): Promise<{ samples: Sample[]; filled: Span[] }> {
 		if (firstDay === null) {
-			return [];
+			return { samples: [], filled: [] };
 		}
 		const from = `${firstDay}T00:00:00Z`;
 		const live = await loadSamples(reader, id, from, now, src);
 		const history = await loadSamples(reader, id, from, now, HISTORY_SRC);
-		const joined = withHistory(history, live);
+		const joined = joinHistory(history, live);
 		const until = live[0]?.ts ?? history[history.length - 1]?.ts;
-		if (joined.length > live.length && until !== undefined) {
+		if (joined.samples.length > live.length && until !== undefined) {
 			historyUntil =
 				historyUntil === null || until < historyUntil
 					? until
@@ -86,7 +100,8 @@ export async function buildSite(opts: {
 		}
 		return joined;
 	}
-	const rates = rateCoin === undefined ? [] : await readJoined(rateCoin.id);
+	const rates =
+		rateCoin === undefined ? [] : (await readJoined(rateCoin.id)).samples;
 
 	for (const coin of config.coins) {
 		if (!SAFE_COIN_ID.test(coin.id)) {
@@ -95,7 +110,7 @@ export async function buildSite(opts: {
 		if (coin.role === 'rate') {
 			continue;
 		}
-		const loaded = await readJoined(coin.id);
+		const { samples: loaded, filled } = await readJoined(coin.id);
 		const samples =
 			rateCoin === undefined ? loaded : convertSamples(loaded, rates);
 		// A disabled coin with no rows has nothing to show; a disabled coin with rows stays as an archive
@@ -118,17 +133,12 @@ export async function buildSite(opts: {
 		}
 
 		const base = join(outDir, 'coins', coin.id);
-		await writeJson(
-			`${base}.7d.json`,
+		const weekFrom = nowSec - SEVEN_DAYS_SECONDS;
+		const week =
 			samples.length === 0
 				? emptyPoints(coin.id, src)
-				: recentPoints(
-						coin.id,
-						src,
-						samples,
-						nowSec - SEVEN_DAYS_SECONDS
-					)
-		);
+				: recentPoints(coin.id, src, samples, weekFrom);
+		await writeJson(`${base}.7d.json`, withFilled(week, filled, weekFrom));
 		// The source comparison exists only while more than one source is stored (ADR 0002)
 		if (config.settings.stored_sources.length > 1) {
 			const weekStart = nowSec - SEVEN_DAYS_SECONDS;
@@ -159,9 +169,14 @@ export async function buildSite(opts: {
 				sourcePoints(coin.id, bySource, weekStart)
 			);
 		}
+		const quarterFrom = nowSec - NINETY_DAYS_SECONDS;
 		await writeJson(
 			`${base}.90d.json`,
-			hourlyPoints(coin.id, src, samples, nowSec - NINETY_DAYS_SECONDS)
+			withFilled(
+				hourlyPoints(coin.id, src, samples, quarterFrom),
+				filled,
+				quarterFrom
+			)
 		);
 		await writeJson(
 			`${base}.daily.json`,

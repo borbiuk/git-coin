@@ -246,6 +246,37 @@ function makeMarket(config: Config, clock: Clock): Market {
 		}
 	}
 
+	/** 15-minute candles from `start`, as many as `limit` and only those that have started by now. */
+	function serveCandles(url: URL, nowMs: number): HttpResult {
+		const name = url.pathname.split('/')[4];
+		const coin = config.coins.find(
+			(item) => item.sources.bitstamp_market === name
+		);
+		const start = Number(url.searchParams.get('start'));
+		const limit = Number(url.searchParams.get('limit'));
+		const ohlc = [];
+		for (let i = 0; i < limit; i += 1) {
+			const startSec = start + i * 900;
+			if (coin === undefined || startSec * 1000 > nowMs) {
+				break;
+			}
+			ohlc.push({
+				timestamp: String(startSec),
+				open: '1',
+				high: '1',
+				low: '1',
+				close: normalPrice(
+					'bitstamp',
+					coin.id,
+					1,
+					Math.floor(startSec / 900)
+				),
+				volume: '1.5',
+			});
+		}
+		return { status: 200, ms: 7, json: { data: { pair: name, ohlc } } };
+	}
+
 	function serve(url: URL, source: SourceId): HttpResult {
 		const failed = fault(source);
 		if (failed !== null) {
@@ -304,6 +335,9 @@ function makeMarket(config: Config, clock: Clock): Market {
 				};
 			}
 			case 'bitstamp':
+				if (url.pathname.startsWith('/api/v2/ohlc/')) {
+					return serveCandles(url, nowMs);
+				}
 				return {
 					status: 200,
 					ms: 7,
@@ -574,6 +608,7 @@ export function depsOf(
 		dryRun: false,
 		dashboardUrl: 'https://example.test/git-coin/',
 		keepalive: null,
+		gapFill: null,
 		log: (line) => {
 			world.logs.push(line);
 		},

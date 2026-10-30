@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
 	RATE_MAX_GAP_SECONDS,
+	clipSpans,
 	convertSamples,
 	dailyCandles,
 	hourlyPoints,
@@ -10,7 +11,7 @@ import {
 	periodStats,
 	recentPoints,
 	toSamples,
-	withHistory,
+	joinHistory,
 } from '../../src/site/derive.ts';
 import type { Sample } from '../../src/site/derive.ts';
 import type { PricePoint, SeriesReader } from '../../src/types.ts';
@@ -301,7 +302,7 @@ test('convertSamples rounds the result to 12 significant digits', () => {
 	assert.ok(String(out[0]?.p).length <= 14);
 });
 
-test('withHistory puts the history first and drops history at or after the first live sample', () => {
+test('joinHistory keeps the history before the first live sample and drops a candle next to a live one', () => {
 	const history = [
 		sample('2026-10-28T10:00:00Z', 1),
 		sample('2026-10-28T10:15:00Z', 2),
@@ -312,10 +313,67 @@ test('withHistory puts the history first and drops history at or after the first
 		sample('2026-10-29T10:15:00Z', 40),
 		sample('2026-10-29T11:00:00Z', 50),
 	];
+	const joined = joinHistory(history, live);
 	assert.deepEqual(
-		withHistory(history, live).map((item) => item.p),
+		joined.samples.map((item) => item.p),
 		[1, 2, 3, 40, 50]
 	);
-	assert.deepEqual(withHistory(history, []), history);
-	assert.deepEqual(withHistory([], live), live);
+	assert.deepEqual(joined.filled, []);
+	assert.deepEqual(joinHistory(history, []), {
+		samples: history,
+		filled: [],
+	});
+	assert.deepEqual(joinHistory([], live), { samples: live, filled: [] });
+});
+
+test('joinHistory keeps the candles of a missed run and reports their span', () => {
+	const live = [
+		sample('2026-10-29T10:00:00Z', 10),
+		sample('2026-10-29T10:15:00Z', 11),
+		sample('2026-10-29T16:15:00Z', 30),
+		sample('2026-10-29T16:30:00Z', 31),
+	];
+	const history = [
+		sample('2026-10-29T09:45:00Z', 1),
+		// Within 5 minutes of the live sample at 10:15
+		sample('2026-10-29T10:16:00Z', 99),
+		sample('2026-10-29T10:30:00Z', 20),
+		sample('2026-10-29T10:45:00Z', 21),
+		sample('2026-10-29T16:00:00Z', 29),
+		// Within 5 minutes of the live sample at 16:15
+		sample('2026-10-29T16:14:00Z', 98),
+	];
+	const joined = joinHistory(history, live);
+	assert.deepEqual(
+		joined.samples.map((item) => item.p),
+		[1, 10, 11, 20, 21, 29, 30, 31]
+	);
+	assert.deepEqual(joined.filled, [[live[1]?.t, live[2]?.t]]);
+});
+
+test('joinHistory closes the last span at the newest candle when no live sample follows', () => {
+	const live = [sample('2026-10-29T10:00:00Z', 10)];
+	const history = [
+		sample('2026-10-29T10:30:00Z', 20),
+		sample('2026-10-29T10:45:00Z', 21),
+	];
+	const joined = joinHistory(history, live);
+	assert.deepEqual(joined.filled, [[live[0]?.t, history[1]?.t]]);
+});
+
+test('clipSpans drops the spans before the start and cuts the one that crosses it', () => {
+	assert.deepEqual(
+		clipSpans(
+			[
+				[10, 20],
+				[30, 50],
+				[60, 70],
+			],
+			40
+		),
+		[
+			[40, 50],
+			[60, 70],
+		]
+	);
 });

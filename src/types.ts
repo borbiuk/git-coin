@@ -206,6 +206,8 @@ export interface SeriesPoints {
 	src: SrcCode;
 	t: number[];
 	p: number[];
+	/** Spans (epoch seconds) of missed runs that are filled with candles. Absent when there are none. */
+	filled?: Array<[number, number]>;
 }
 /** The source comparison: the last 7 days of each stored source at full resolution. */
 export interface SeriesSources {

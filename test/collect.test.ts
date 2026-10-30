@@ -315,6 +315,7 @@ function depsOf(h: Harness, extra: Partial<CollectDeps> = {}): CollectDeps {
 		dryRun: false,
 		dashboardUrl: 'https://example.test/dashboard/',
 		keepalive: null,
+		gapFill: null,
 		log: (line) => {
 			h.logs.push(line);
 		},

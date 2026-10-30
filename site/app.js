@@ -9,6 +9,7 @@ import {
 	breakGaps,
 	coinDataUrl,
 	dailyToPoints,
+	filledNote,
 	formatAxisPrice,
 	formatChange,
 	formatPercentAxis,
@@ -360,11 +361,46 @@ function hatchPattern(ctx, color, ratio) {
 	return ctx.createPattern(tile, 'repeat');
 }
 
+// A shaded band over the time of every missed run that was filled with candles, with a label when it fits
+function drawFilled(u, spans, colors) {
+	const { ctx, bbox } = u;
+	const ratio = window.devicePixelRatio || 1;
+	ctx.save();
+	ctx.font = `${12 * ratio}px ${colors.font}`;
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'top';
+	const label = 'No scheduled run';
+	const labelWidth = ctx.measureText(label).width + 8 * ratio;
+	for (const [from, to] of spans) {
+		const x0 = Math.max(u.valToPos(from, 'x', true), bbox.left);
+		const x1 = Math.min(u.valToPos(to, 'x', true), bbox.left + bbox.width);
+		const width = x1 - x0;
+		if (width < 3 * ratio) {
+			continue;
+		}
+		ctx.globalAlpha = 0.14;
+		ctx.fillStyle = colors.accent;
+		ctx.fillRect(x0, bbox.top, width, bbox.height);
+		ctx.globalAlpha = 1;
+		if (width < labelWidth + 8 * ratio) {
+			continue;
+		}
+		const middle = x0 + width / 2;
+		const top = bbox.top + 6 * ratio;
+		ctx.fillStyle = colors.bg;
+		ctx.fillRect(middle - labelWidth / 2, top, labelWidth, 18 * ratio);
+		ctx.fillStyle = colors.text;
+		ctx.fillText(label, middle, top + 3 * ratio);
+	}
+	ctx.restore();
+}
+
 // A hatched band and a "No data" label over every gap, drawn under the grid and the line
-function drawGaps(u, spans, colors) {
+function drawGaps(u, spans, colors, filled = []) {
 	const { ctx, bbox } = u;
 	const ratio = window.devicePixelRatio || 1;
 	const hatch = hatchPattern(ctx, colors.hatch, ratio);
+	drawFilled(u, filled, colors);
 	ctx.save();
 	for (const [from, to] of spans) {
 		const x0 = Math.max(u.valToPos(from, 'x', true), bbox.left);
@@ -411,8 +447,10 @@ function drawChart(series) {
 		text: cssVar('--text'),
 		hatch: cssVar('--border'),
 		font: cssVar('--font'),
+		accent: cssVar('--accent'),
 	};
 	const spans = gapSpans(data.t, data.p);
+	const filled = series.filled ?? [];
 	const markers = markerIndices(data.p);
 	const axis = {
 		stroke: muted,
@@ -429,7 +467,7 @@ function drawChart(series) {
 				drag: { x: false, y: false },
 				points: { size: 9, width: 2, fill: bg, stroke: line },
 			},
-			hooks: { drawClear: [(u) => drawGaps(u, spans, colors)] },
+			hooks: { drawClear: [(u) => drawGaps(u, spans, colors, filled)] },
 			series: [
 				{ value: '{YYYY}-{MM}-{DD} {HH}:{mm} UTC' },
 				{
@@ -1108,10 +1146,13 @@ function setChartState(state) {
 	}
 }
 
-function setChartCaption(visible) {
+function setChartCaption(visible, filled) {
 	const source = app.latest ? sourceInfo(app.latest.src).name : '';
+	const note = filledNote(filled);
 	$('chart-caption').textContent =
-		visible && source ? `Source: ${source}. Times in UTC.` : '';
+		visible && source
+			? `Source: ${source}. Times in UTC.${note ? ` ${note}` : ''}`
+			: '';
 }
 
 async function loadChart() {
@@ -1139,7 +1180,7 @@ async function loadChart() {
 		}
 		status.textContent = '';
 		setChartState(null);
-		setChartCaption(true);
+		setChartCaption(true, series.filled);
 		drawChart(series);
 	} catch (err) {
 		if (token !== app.drawToken) {

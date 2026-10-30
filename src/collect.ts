@@ -4,6 +4,7 @@
 
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as sleepMs } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 
 import {
@@ -14,6 +15,8 @@ import {
 import type { IssueClient } from './alerts/index.ts';
 import { ConfigError, enabledCoins, loadConfig } from './config.ts';
 import { appendRequestLog, appendRows, readLastRow } from './csv.ts';
+import { fetchGapRows, readPending, writePending } from './gapfill.ts';
+import type { GapResult, GapTarget } from './gapfill.ts';
 import { BOT_AUTHOR, commitAndPush } from './gitdata.ts';
 import type { GitOpts } from './gitdata.ts';
 import { createHttpClient } from './http.ts';
@@ -28,6 +31,7 @@ import {
 } from './status.ts';
 import type { RunSummary } from './status.ts';
 import { isoSeconds, parseIso } from './time.ts';
+import { SRC_CODE } from './types.ts';
 import type {
 	Config,
 	HttpClient,
@@ -46,6 +50,8 @@ const DEFAULT_DASHBOARD_URL = 'https://borbiuk.github.io/git-coin/';
 const REPOSITORY_PATTERN = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/;
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const MINUTE_MS = 60_000;
+/** Pause between two requests of the gap fill (11 markets, one request each). */
+const GAP_FILL_PAUSE_MS = 500;
 
 export interface CollectDeps {
 	config: Config;
@@ -64,6 +70,8 @@ export interface CollectDeps {
 	dashboardUrl: string;
 	/** The checkout of `main`. `null` turns the keepalive step off. */
 	keepalive: { mainDir: string; maxAgeDays: number } | null;
+	/** Fills the time of missed runs with Bitstamp candles (ADR 0005 D8). `null` turns it off. */
+	gapFill: { pauseMs: number } | null;
 	log: (line: string) => void;
 }
 
@@ -86,6 +94,8 @@ interface Checked {
 
 interface Applied {
 	written: PriceRow[];
+	/** Candle rows of the gap fill that were written before the rows of the run. */
+	gapWritten: number;
 	skipped: number;
 	previousStatus: Status;
 	status: Status;
@@ -251,9 +261,20 @@ function decidePublish(config: Config, prev: Status, now: Date): boolean {
 async function applyToCheckout(
 	deps: CollectDeps,
 	checked: Checked[],
+	gapFill: GapResult | null,
 	now: Date
 ): Promise<Applied> {
 	const settings = deps.config.settings;
+	// The candles come first, so the rows of every source stay in time order
+	const gap = await appendRows(deps.dataRoot, gapFill?.rows ?? [], {
+		minSpacingSeconds: settings.min_spacing_seconds,
+	});
+	if (gapFill !== null) {
+		await writePending(
+			path.join(deps.dataRoot, 'state', 'gapfill.json'),
+			gapFill.pending
+		);
+	}
 	const { written, skipped } = await appendRows(
 		deps.dataRoot,
 		checked.flatMap((item) => item.valid),
@@ -291,6 +312,7 @@ async function applyToCheckout(
 	}
 	return {
 		written,
+		gapWritten: gap.written.length,
 		skipped: skipped.length,
 		previousStatus: prev,
 		status,
@@ -372,6 +394,68 @@ async function noDataStep(
 	}
 }
 
+/**
+ * The candle rows for the missing time of every coin that has a Bitstamp market. The missing time starts
+ * at an open gap of an earlier run, else at the newest stored row. Reads the data files and calls
+ * Bitstamp, never writes. A failure gives fewer rows and an open gap, never an error. `null`: off.
+ */
+async function gapStep(
+	deps: CollectDeps,
+	now: Date
+): Promise<GapResult | null> {
+	if (deps.gapFill === null) {
+		return null;
+	}
+	try {
+		const open = await readPending(
+			path.join(deps.dataRoot, 'state', 'gapfill.json')
+		);
+		const codes = [
+			...deps.config.settings.stored_sources.map((id) => SRC_CODE[id]),
+			'bs-ohlc' as const,
+		];
+		const targets: GapTarget[] = [];
+		for (const coin of deps.config.coins) {
+			const market = coin.sources.bitstamp_market;
+			if (!coin.enabled || market === undefined) {
+				continue;
+			}
+			let fromSec: number | null = null;
+			const earlier = open[coin.id];
+			if (earlier !== undefined) {
+				fromSec = parseIso(earlier) / 1000;
+			} else {
+				for (const code of codes) {
+					const last = await readLastRow(
+						deps.dataRoot,
+						coin.id,
+						code
+					);
+					if (last !== null) {
+						fromSec = Math.max(
+							fromSec ?? 0,
+							parseIso(last.ts) / 1000
+						);
+					}
+				}
+			}
+			if (fromSec !== null) {
+				targets.push({ coin: coin.id, market, fromSec });
+			}
+		}
+		return await fetchGapRows(targets, {
+			http: deps.http,
+			nowSec: Math.floor(now.getTime() / 1000),
+			pauseMs: deps.gapFill.pauseMs,
+			sleep: sleepMs,
+			log: deps.log,
+		});
+	} catch (error) {
+		deps.log(`gap fill: failed: ${describeError(error)}`);
+		return null;
+	}
+}
+
 async function collect(deps: CollectDeps): Promise<CollectResult> {
 	const settings = deps.config.settings;
 	const adapters = settings.stored_sources.map((id) => {
@@ -397,16 +481,18 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 		return { exitCode: 0, shouldPublish: false, rowsWritten: 0 };
 	}
 
+	const gapFill = await gapStep(deps, now);
 	const box: { applied?: Applied } = {};
 	const result = await commitAndPush(
 		deps.git,
 		// Built after each try's write(), from the rows that try really appended
 		() => {
 			const count = box.applied?.written.length ?? 0;
-			return `data: ${minuteOf(now)} ${count} ${count === 1 ? 'row' : 'rows'}`;
+			const gap = box.applied?.gapWritten ?? 0;
+			return `data: ${minuteOf(now)} ${count} ${count === 1 ? 'row' : 'rows'}${gap > 0 ? `, ${gap} gap fill` : ''}`;
 		},
 		async () => {
-			box.applied = await applyToCheckout(deps, checked, now);
+			box.applied = await applyToCheckout(deps, checked, gapFill, now);
 		}
 	);
 	const applied = box.applied;
@@ -420,6 +506,9 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 		`pushed after ${result.tries} ${result.tries === 1 ? 'try' : 'tries'}: ${applied.written.length} rows written, ${applied.skipped} skipped, consecutive failures ${applied.status.consecutive_failures}`
 	);
 
+	if (applied.gapWritten > 0) {
+		deps.log(`gap fill: ${applied.gapWritten} candle rows written`);
+	}
 	if (settings.phase === 'production' && settings.features.alerts) {
 		await alertStep(deps, now);
 	}
@@ -551,6 +640,7 @@ export async function runCli(
 							maxAgeDays: KEEPALIVE_MAX_AGE_DAYS,
 						}
 					: null,
+			gapFill: { pauseMs: GAP_FILL_PAUSE_MS },
 			log,
 		};
 	} catch (error) {

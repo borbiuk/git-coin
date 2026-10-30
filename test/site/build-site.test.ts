@@ -669,8 +669,8 @@ test('backfilled rows fill the time before the first live row, are converted, an
 	]);
 	await writeDay(root, 'BTC', '2026-10-28', [
 		'2026-10-28T12:00:00Z,200,kr,',
-		// at or after the first live row: dropped from the history
-		'2026-10-28T12:15:00Z,999,bs-ohlc,',
+		// after the first live row: a candle of a missed run, kept and marked as filled
+		'2026-10-28T12:30:00Z,999,bs-ohlc,',
 		'2026-10-28T13:00:00Z,300,kr,',
 	]);
 	await writeDay(root, 'USDT', '2026-10-27', [
@@ -701,14 +701,24 @@ test('backfilled rows fill the time before the first live row, are converted, an
 		until: '2026-10-28T12:00:00Z',
 	});
 	assert.equal(latest.coins.BTC?.price, 600);
-	const seven = await readOut<{ t: number[]; p: number[] }>(
-		'coins/BTC.7d.json'
-	);
-	assert.deepEqual(seven.p, [200, 220, 400, 600]);
+	const seven = await readOut<{
+		t: number[];
+		p: number[];
+		filled?: number[][];
+	}>('coins/BTC.7d.json');
+	assert.deepEqual(seven.p, [200, 220, 400, 1998, 600]);
 	assert.deepEqual(seven.t, [
 		epoch('2026-10-27T12:15:00Z'),
 		epoch('2026-10-27T12:30:00Z'),
 		epoch('2026-10-28T12:00:00Z'),
+		epoch('2026-10-28T12:30:00Z'),
 		epoch('2026-10-28T13:00:00Z'),
 	]);
+	assert.deepEqual(seven.filled, [
+		[epoch('2026-10-28T12:00:00Z'), epoch('2026-10-28T13:00:00Z')],
+	]);
+	const quarter = await readOut<{ filled?: number[][] }>(
+		'coins/BTC.90d.json'
+	);
+	assert.deepEqual(quarter.filled, seven.filled);
 });

@@ -9,15 +9,14 @@ import { parseArgs } from 'node:util';
 
 import { loadConfig } from '../src/config.ts';
 import { appendRows, readLastRow } from '../src/csv.ts';
+import { LIMIT, STEP_SECONDS, parseCandles } from '../src/gapfill.ts';
+import type { Candle } from '../src/gapfill.ts';
 import { createHttpClient } from '../src/http.ts';
 import { isoSeconds, parseIso } from '../src/time.ts';
 import type { HttpClient, PriceRow } from '../src/types.ts';
 
 const BASE_URL = 'https://www.bitstamp.net/api/v2/ohlc';
 const SRC = 'bs-ohlc';
-const STEP_SECONDS = 900;
-/** The largest `limit` of the endpoint. One request covers this many candles. */
-const LIMIT = 1000;
 const WINDOW_SECONDS = STEP_SECONDS * LIMIT;
 const MIN_SPACING_SECONDS = 300;
 /** Less than this pause between two requests is refused (the published limit is thousands per 10 minutes). */
@@ -25,8 +24,6 @@ const MIN_PAUSE_MS = 500;
 const DEFAULT_PAUSE_MS = 1000;
 /** Waits after a 429, a 5xx or a network error. After the last wait the run stops. */
 const RETRY_WAITS_MS = [30_000, 60_000, 120_000];
-const DECIMAL = /^\d+(\.\d+)?$/;
-const INTEGER = /^\d+$/;
 
 const DEFAULT_FROM = '2024-01-01T00:00:00Z';
 /** The first day of the live data is not touched: its file is written by the collector. */
@@ -35,13 +32,6 @@ const DEFAULT_UNTIL = '2026-10-29T00:00:00Z';
 export interface Market {
 	coin: string;
 	market: string;
-}
-
-export interface Candle {
-	/** Start of the candle, epoch seconds. */
-	start: number;
-	close: string;
-	volume: string;
 }
 
 export interface BackfillOptions {
@@ -61,33 +51,8 @@ export interface MarketResult {
 	skipped: number;
 }
 
-/** Reads one answer of the OHLC endpoint. Throws when the shape is not the expected one. */
-export function parseCandles(json: unknown): Candle[] {
-	const data = (json as { data?: { ohlc?: unknown } } | null)?.data;
-	const list = data?.ohlc;
-	if (!Array.isArray(list)) {
-		throw new Error('The answer has no data.ohlc list');
-	}
-	const candles = list.map((item: unknown) => {
-		const entry = item as Record<string, unknown> | null;
-		const timestamp = entry?.timestamp;
-		const close = entry?.close;
-		const volume = entry?.volume;
-		if (
-			typeof timestamp !== 'string' ||
-			!INTEGER.test(timestamp) ||
-			typeof close !== 'string' ||
-			!DECIMAL.test(close) ||
-			Number(close) <= 0 ||
-			typeof volume !== 'string' ||
-			!DECIMAL.test(volume)
-		) {
-			throw new Error('A candle has a field that is not a plain number');
-		}
-		return { start: Number(timestamp), close, volume };
-	});
-	return candles.sort((a, b) => a.start - b.start);
-}
+export { parseCandles };
+export type { Candle };
 
 /** The number of requests a market needs from `fromSec` up to `untilSec`. */
 export function requestCount(fromSec: number, untilSec: number): number {

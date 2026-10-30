@@ -161,8 +161,11 @@ Scheduled runs that never start create no failure. Defences, in order:
 
 - `workflow_dispatch` inputs: `dry_run` (boolean, default false) and `mode` (`collect` or `backfill`, default `collect`).
 - Dry run: fetch and validate, print what would be written, write nothing, create no Issue, do not publish.
-- Backfill is manual only and is a later feature. Design: for each coin, find the gap since the last stored row. Fetch Kraken `OHLC` with 15-minute candles (at most 720 candles, 7.5 days). Insert candle-close rows with `src=kr-ohlc` and the candle close time as `ts`. Merge in sorted order, skip timestamps within `min_spacing` of an existing row. Gaps older than 7.5 days stay gaps. This is the only path that is not append-only, so it is never scheduled, and the append-only guard is relaxed only for this mode.
-- Backfill uses Kraken data, so it carries the same terms question as ADR 0002.
+- Gap fill (decided 2026-10-30, replaces the manual Kraken backfill that was planned here). Missed runs are common (the dashboard sees a run every few hours, not every 15 minutes), so every run repairs the time before it. For each coin with a Bitstamp market (the `USDT` rate entry too) the collector takes the newest stored row of any source. When it is 20 minutes or more before the run, one request to Bitstamp `ohlc` (`step=900`, up to 1000 candles, so at most 10.4 days) returns the candles, and the collector appends their closes as `src=bs-ohlc` rows. The candle close time is `ts`, `age_s` is empty, a candle with no trades is skipped. The rows are appended before the rows of the run, so no stored line changes and the append-only guard stays as it is. A gap longer than 10.4 days is filled only for its newest 10.4 days.
+- The gap fill never fails a run. If a request fails, the start of the gap stays in `state/gapfill.json` (`pending`, coin id to ISO time), and the next run fills from there. This also covers a failed fill in a run whose own rows were stored. A 429 stops the other requests of the run, and their gaps stay open too. The requests are 500 ms apart, 11 at most per run, and none when there is no gap.
+- Bitstamp is the only fill source, because the history before the live data is Bitstamp (ADR 0004 D1), so the series has one source of filled data. This drops the Kraken design and its terms question. The source of the live rows can still change after the source test (D10).
+- The fill is always on. It has no config key. The collector dependency `gapFill` is `null` only in tests.
+- Nothing fills before the first stored row of a coin. A coin added later has no history (ADR 0007).
 
 ### D9. Escalation if the platform stays throttled
 

@@ -45,16 +45,76 @@ export function toSamples(points: PricePoint[]): Sample[] {
 	return samples;
 }
 
+/** A candle this close to a live sample is left out, so the two never show the same moment twice. */
+export const DUPLICATE_SECONDS = 300;
+
+/** A time span in epoch seconds, from the last live sample before a gap to the first one after it. */
+export type Span = [number, number];
+
 /**
- * The history first, then the live samples. A history sample at or after the first live sample is dropped,
- * so the two sources never overlap. Both lists are in time order.
+ * The history and the live samples in time order. All history before the first live sample is kept.
+ * After it, history is only candles that fill the time of missed runs (ADR 0005 D8): they are kept unless a
+ * live sample is within `DUPLICATE_SECONDS`. `filled` lists the spans of those candles, each from the live
+ * sample before the run of candles to the live sample after it. Both lists are in time order.
  */
-export function withHistory(history: Sample[], live: Sample[]): Sample[] {
+export function joinHistory(
+	history: Sample[],
+	live: Sample[]
+): { samples: Sample[]; filled: Span[] } {
 	const first = live[0];
 	if (first === undefined) {
-		return history;
+		return { samples: history, filled: [] };
 	}
-	return [...history.filter((sample) => sample.t < first.t), ...live];
+	const kept: Array<{ sample: Sample; candle: boolean }> = [];
+	let next = 0;
+	for (const sample of history) {
+		if (sample.t < first.t) {
+			kept.push({ sample, candle: false });
+			continue;
+		}
+		while (next < live.length && (live[next]?.t ?? 0) < sample.t) {
+			next += 1;
+		}
+		const after = live[next];
+		const before = live[next - 1];
+		const near =
+			(after !== undefined && after.t - sample.t < DUPLICATE_SECONDS) ||
+			(before !== undefined && sample.t - before.t < DUPLICATE_SECONDS);
+		if (!near) {
+			kept.push({ sample, candle: true });
+		}
+	}
+	const merged = [
+		...kept,
+		...live.map((sample) => {
+			return { sample, candle: false };
+		}),
+	].sort((a, b) => a.sample.t - b.sample.t);
+
+	const filled: Span[] = [];
+	let runStart = -1;
+	for (const [i, item] of merged.entries()) {
+		if (!item.candle) {
+			continue;
+		}
+		if (runStart < 0) {
+			runStart = i;
+		}
+		const following = merged[i + 1];
+		if (following === undefined || !following.candle) {
+			const opening = merged[runStart - 1] ?? item;
+			filled.push([opening.sample.t, (following ?? item).sample.t]);
+			runStart = -1;
+		}
+	}
+	return { samples: merged.map((item) => item.sample), filled };
+}
+
+/** The spans that reach into the time from `fromSec` on, cut at `fromSec`. */
+export function clipSpans(spans: Span[], fromSec: number): Span[] {
+	return spans
+		.filter(([, to]) => to > fromSec)
+		.map(([from, to]) => [Math.max(from, fromSec), to]);
 }
 
 /** A price is matched to a rate at most this far away in time. */

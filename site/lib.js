@@ -448,18 +448,62 @@ export function summarizeChanges(rangeKey, baseKey, items) {
 	);
 }
 
-/** The part of a series that lies within `seconds` before its last point. */
+/** The spans of `filled` that reach into the time from `from` on, cut at `from`. Bad entries are dropped. */
+export function clipFilled(filled, from) {
+	if (!Array.isArray(filled)) {
+		return [];
+	}
+	return filled
+		.filter(
+			(span) =>
+				Array.isArray(span) &&
+				span.length === 2 &&
+				Number.isFinite(span[0]) &&
+				Number.isFinite(span[1]) &&
+				span[1] > from
+		)
+		.map((span) => [Math.max(span[0], from), span[1]]);
+}
+
+/**
+ * The part of a series that lies within `seconds` before its last point. `filled` is the list of
+ * time spans of missed runs that were filled with candles. It is kept, cut at the start of the range.
+ */
 export function sliceRange(series, seconds) {
 	const { t, p } = series;
 	if (t.length === 0 || !Number.isFinite(seconds)) {
-		return { t: t.slice(), p: p.slice() };
+		return withFilled(
+			{ t: t.slice(), p: p.slice() },
+			series.filled,
+			-Infinity
+		);
 	}
 	const from = t[t.length - 1] - seconds;
 	let start = 0;
 	while (start < t.length && t[start] < from) {
 		start++;
 	}
-	return { t: t.slice(start), p: p.slice(start) };
+	return withFilled(
+		{ t: t.slice(start), p: p.slice(start) },
+		series.filled,
+		from
+	);
+}
+
+function withFilled(out, filled, from) {
+	const spans = clipFilled(filled, from);
+	if (spans.length > 0) {
+		out.filled = spans;
+	}
+	return out;
+}
+
+/** One sentence that explains the shaded bands of a chart, or an empty text when the range has none. */
+export function filledNote(filled) {
+	if (!Array.isArray(filled) || filled.length === 0) {
+		return '';
+	}
+	return 'Shaded: no scheduled run in this time. The prices there are 15-minute candle closes from Bitstamp. Hatched: no data.';
 }
 
 /** The daily file as a line of closing prices. */

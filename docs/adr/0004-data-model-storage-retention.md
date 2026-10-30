@@ -124,12 +124,13 @@ Commit counts per year at 100% delivery: 105,120 (5 min), 52,560 (10 min), 35,04
     - `data/raw/YYYY/MM/DD/<ID>.csv` (UTC date of `ts`; `<ID>` is the upper-case ticker, for example `BTC.csv`)
     - `state/status.json` (last run, last point, failures, last publish time)
     - `state/alerts.json` (alert cooldowns, open Issue numbers, daily counter; see ADR 0006)
+    - `state/gapfill.json` (coins whose gap could not be filled yet, with the start of the gap; see ADR 0005 D8)
 - Header line of each daily file: `ts,price,src,age_s`.
 - Row examples (shape only): `2026-10-29T14:03:12Z,81232.79,kr,` and `2026-10-29T14:03:13Z,81230.10,cb,2`.
 - `age_s` is the age of the source's own timestamp at fetch time, in seconds. It is empty when the source gives none (Kraken). Details in D7.
 - `ts` is the real fetch time in UTC, ISO 8601, second precision, always with `Z`. It is never the scheduled time and never a grid time.
 - `price` is the source string, copied as is. No float formatting. Quote currency is USD for all coins (ADR 0002), so it is not a column. Quote is written in the config and in `status.json`.
-- `src` is a short source code: `kr` Kraken, `cb` Coinbase Exchange, `bs` Bitstamp, `cm` Coin Metrics. Backfill rows use `kr-ohlc` (Kraken, see ADR 0005) or `bs-ohlc` (Bitstamp 15-minute candles from 2024-01-01 to 2026-10-28, `ts` is the candle close time, `age_s` is empty; written once by `tools/backfill-bitstamp.ts`). The four-source test stores all four in the same files (D7). After the choice, new rows carry the chosen `src` only, and the old rows of the other sources stay.
+- `src` is a short source code: `kr` Kraken, `cb` Coinbase Exchange, `bs` Bitstamp, `cm` Coin Metrics. Candle rows use `bs-ohlc` (Bitstamp 15-minute candles, `ts` is the candle close time, `age_s` is empty). `tools/backfill-bitstamp.ts` wrote them once for 2024-01-01 to 2026-10-28 (and 2026-10-29), and the collector writes them for the time of missed runs (ADR 0005 D8). `kr-ohlc` stays a valid code but nothing writes it. The four-source test stores all four in the same files (D7). After the choice, new rows carry the chosen `src` only, and the old rows of the other sources stay.
 
 ### D2. Commit policy
 
@@ -141,7 +142,7 @@ Commit counts per year at 100% delivery: 105,120 (5 min), 52,560 (10 min), 35,04
 ### D3. Time handling, missed runs, duplicates
 
 - All times are UTC. No local time anywhere.
-- Missed runs are not repaired. A gap stays a gap. Charts show gaps (ADR 0008). Alerts do not use data across a gap longer than the window (ADR 0006).
+- Missed runs are repaired by the next run with 15-minute Bitstamp candles (ADR 0005 D8, changed on 2026-10-30; before this a gap stayed a gap). The candle rows are appended after the rows that already exist, so lines of one `src` stay in time order, but lines of different sources in one file can be interleaved. Time with no candle stays a gap. Charts mark the filled time and show the gaps (ADR 0008). Alerts read only the primary live source, so they do not use candles, and they do not use data across a gap longer than the window (ADR 0006).
 - Duplicate runs: the concurrency group prevents overlap (ADR 0005). As a second guard, before appending a row for a coin, read the last row of today's file. Skip the row if `now - last_ts < min_spacing` (default 300 seconds, configurable). `last_ts` is the last row of the same `src`, so several sources can share one file. This is the idempotency rule. Re-running the same job after a push conflict will skip rows that were already written.
 - The exchange timestamp itself is not stored, only its age in `age_s` (D7). Kraken's `Ticker` has none. CoinGecko's `last_updated_at` is used only for the cross-check (reject if older than 15 minutes).
 - A clock check: if `ts` is earlier than the last stored `ts` for that coin, do not write the row and log an error.

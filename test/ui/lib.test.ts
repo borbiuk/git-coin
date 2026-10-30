@@ -586,3 +586,40 @@ test('the vendored uPlot files are the expected version and have a licence', () 
 	);
 	assert.match(licence, /MIT License/);
 });
+
+test('sliceRange keeps the filled spans of the range and cuts the one that crosses its start', () => {
+	const series = {
+		t: [0, 10, 20, 30, 40],
+		p: [1, 2, 3, 4, 5],
+		filled: [
+			[2, 8],
+			[12, 25],
+			[32, 38],
+		],
+	};
+	assert.deepEqual(lib.sliceRange(series, 25).filled, [
+		[15, 25],
+		[32, 38],
+	]);
+	assert.deepEqual(lib.sliceRange(series, 2).filled, undefined);
+	assert.equal('filled' in lib.sliceRange({ t: [1], p: [1] }, 5), false);
+	assert.deepEqual(lib.sliceRange(series, Infinity).filled, series.filled);
+});
+
+test('clipFilled drops entries that are not a pair of numbers', () => {
+	assert.deepEqual(
+		lib.clipFilled([[1, 5], 'x', [1], [Number.NaN, 4], [2, 9]], 3),
+		[
+			[3, 5],
+			[3, 9],
+		]
+	);
+	assert.deepEqual(lib.clipFilled(undefined, 0), []);
+});
+
+test('filledNote explains the shaded bands only when the range has some', () => {
+	assert.equal(lib.filledNote(undefined), '');
+	assert.equal(lib.filledNote([]), '');
+	assert.match(lib.filledNote([[1, 2]]), /no scheduled run/i);
+	assert.match(lib.filledNote([[1, 2]]), /hatched: no data/i);
+});
