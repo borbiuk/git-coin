@@ -1,103 +1,103 @@
 {
   "schema_version": 1,
   "phase": "test",
-  "last_run_at": "2026-10-30T09:53:57Z",
-  "last_point_at": "2026-10-30T09:53:57Z",
+  "last_run_at": "2026-10-30T10:14:51Z",
+  "last_point_at": "2026-10-30T10:14:51Z",
   "consecutive_failures": 0,
   "last_publish_at": "2026-10-30T09:53:57Z",
   "sources": {
     "bs": {
-      "requests": 6,
+      "requests": 7,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-10-30T09:53:56Z"
+      "last_ok_at": "2026-10-30T10:14:51Z"
     },
     "cb": {
-      "requests": 6,
+      "requests": 7,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-10-30T09:53:56Z"
+      "last_ok_at": "2026-10-30T10:14:51Z"
     },
     "cm": {
-      "requests": 6,
+      "requests": 7,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-10-30T09:53:57Z"
+      "last_ok_at": "2026-10-30T10:14:51Z"
     },
     "kr": {
-      "requests": 6,
+      "requests": 7,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-10-30T09:53:57Z"
+      "last_ok_at": "2026-10-30T10:14:51Z"
     }
   },
   "coins": {
     "ADA": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "BNB": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "BTC": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "DOGE": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ETH": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "LINK": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "LTC": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "SOL": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "USDT": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "XLM": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "XRP": {
-      "last_point_at": "2026-10-30T09:53:57Z",
+      "last_point_at": "2026-10-30T10:14:51Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
