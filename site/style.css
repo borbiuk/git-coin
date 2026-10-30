@@ -14,6 +14,16 @@
 	--series-2: #c25e00;
 	--series-3: #0a7ea8;
 	--series-4: #a0338f;
+	--coin-1: #0b4fb3;
+	--coin-2: #c25e00;
+	--coin-3: #8a6d00;
+	--coin-4: #0a7ea8;
+	--coin-5: #6b4fbb;
+	--coin-6: #a0338f;
+	--coin-7: #a8201a;
+	--coin-8: #12662b;
+	--coin-9: #7a4a2a;
+	--coin-10: #4f5864;
 	--up: #12662b;
 	--down: #a8201a;
 	--focus: #0a58ca;
@@ -43,6 +53,16 @@
 		--series-2: #f2a65a;
 		--series-3: #5fd4f0;
 		--series-4: #e08ad0;
+		--coin-1: #6ea8ff;
+		--coin-2: #f2a65a;
+		--coin-3: #e6c84a;
+		--coin-4: #5fd4f0;
+		--coin-5: #b79bff;
+		--coin-6: #e08ad0;
+		--coin-7: #ff958b;
+		--coin-8: #62d17f;
+		--coin-9: #c99a7a;
+		--coin-10: #aab4c0;
 		--up: #62d17f;
 		--down: #ff958b;
 		--focus: #8bbcff;
@@ -70,10 +90,12 @@ body {
 	font: 16px/1.5 var(--font);
 }
 
+/* Side padding of 16px, or the safe area of a phone with a notch in landscape (viewport-fit=cover) */
 .wrap {
 	max-width: 56rem;
 	margin: 0 auto;
-	padding: 0 16px;
+	padding: 0 max(16px, env(safe-area-inset-right)) 0
+		max(16px, env(safe-area-inset-left));
 }
 
 main:focus {
@@ -244,12 +266,54 @@ a {
 	cursor: pointer;
 }
 
+/* A closed block with a heading: the source note, the source comparison */
+.more {
+	margin: 4px 0;
+}
+
+.more > summary {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	color: var(--accent);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.more > summary::before {
+	content: '▸';
+	margin-right: 8px;
+	font-size: 0.9em;
+}
+
+.more[open] > summary::before {
+	content: '▾';
+}
+
+#compare > summary {
+	margin-top: 8px;
+	font-size: 1.0625rem;
+}
+
 /* Selected coin */
 .price {
 	margin: 4px 0;
 	font-size: 2rem;
 	font-weight: 700;
 	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
+}
+
+.unit {
+	color: var(--muted);
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.readout {
+	min-height: 1.5em;
+	margin: 4px 0;
+	font-size: 0.875rem;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -294,12 +358,17 @@ td.num {
 
 #latest th,
 #latest td {
-	padding: 0 3px;
+	padding: 0 6px;
+}
+
+#latest tbody th,
+#latest tbody td {
+	height: 44px;
 }
 
 .arrow {
 	margin-right: 0.2em;
-	font-size: 0.8em;
+	font-size: 0.9em;
 }
 
 @media (max-width: 480px) {
@@ -391,14 +460,99 @@ footer {
 }
 
 .check input {
-	width: 20px;
-	height: 20px;
+	width: 24px;
+	height: 24px;
 	margin: 0;
+	accent-color: var(--c, var(--accent));
 }
 
 #multi-readout {
 	min-height: 1.5em;
 	font-variant-numeric: tabular-nums;
+}
+
+/* A drag along the chart moves the crosshair (app.js), a drag up or down still scrolls the page */
+.u-over {
+	touch-action: pan-y;
+}
+
+.chips .chip,
+.ranges .chip {
+	touch-action: manipulation;
+}
+
+/* The colour of a coin in the comparison, its table and the overview */
+.coin-1 {
+	--c: var(--coin-1);
+}
+.coin-2 {
+	--c: var(--coin-2);
+}
+.coin-3 {
+	--c: var(--coin-3);
+}
+.coin-4 {
+	--c: var(--coin-4);
+}
+.coin-5 {
+	--c: var(--coin-5);
+}
+.coin-6 {
+	--c: var(--coin-6);
+}
+.coin-7 {
+	--c: var(--coin-7);
+}
+.coin-8 {
+	--c: var(--coin-8);
+}
+.coin-9 {
+	--c: var(--coin-9);
+}
+.coin-10 {
+	--c: var(--coin-10);
+}
+
+.swatch {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-right: 8px;
+	border-radius: 50%;
+	background: var(--c);
+	vertical-align: baseline;
+}
+
+/* Overview of all coins: sortable headings, a line of the last 7 days */
+.sort {
+	min-height: 44px;
+	padding: 0 6px;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+#latest th.num .sort {
+	text-align: right;
+}
+
+.sort-mark {
+	display: inline-block;
+	min-width: 1em;
+	font-size: 0.75em;
+}
+
+.spark {
+	display: block;
+	width: 88px;
+	height: 28px;
+}
+
+#latest tbody tr[aria-current='true'] {
+	background: var(--surface);
 }
 
 /* Crosshair: a solid line in the text colour */
@@ -419,6 +573,113 @@ footer {
 .chart.is-error {
 	border: 1px dashed var(--muted);
 	border-radius: 8px;
+}
+
+/* Phones: every coin is a card of two lines (name, line and price; then the three changes), and the
+   headings become a row of sort buttons, so the table never scrolls sideways */
+@media (max-width: 560px) {
+	#latest,
+	#latest thead,
+	#latest tbody {
+		display: block;
+	}
+
+	#latest thead tr {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		margin-bottom: 8px;
+	}
+
+	#latest thead th {
+		display: block;
+		flex: 1 1 0;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	#latest thead th:last-child {
+		display: none;
+	}
+
+	#latest .sort {
+		width: 100%;
+		padding: 0 2px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--surface);
+	}
+
+	#latest th.num .sort {
+		text-align: center;
+	}
+
+	#latest tbody tr {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-areas:
+			'coin spark price'
+			'd24 d7 d30';
+		gap: 0 8px;
+		align-items: center;
+		padding: 4px 0 8px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	#latest tbody th,
+	#latest tbody td {
+		display: block;
+		height: auto;
+		padding: 0;
+		border: 0;
+		text-align: left;
+	}
+
+	#latest tbody th {
+		grid-area: coin;
+	}
+
+	#latest .col-spark {
+		grid-area: spark;
+	}
+
+	#latest .col-price {
+		grid-area: price;
+		font-weight: 600;
+		text-align: right;
+	}
+
+	#latest .col-24h {
+		grid-area: d24;
+	}
+
+	#latest .col-7d {
+		grid-area: d7;
+	}
+
+	#latest .col-30d {
+		grid-area: d30;
+	}
+
+	#latest td[data-label]::before {
+		content: attr(data-label) ' ';
+		color: var(--muted);
+		font-size: 0.8125rem;
+		font-weight: 400;
+	}
+
+	#latest .col-price::before {
+		content: none;
+	}
+}
+
+/* The label of a change goes above its value when three of them do not fit in one line */
+@media (max-width: 400px) {
+	#latest td[data-label]::before {
+		display: block;
+		line-height: 1.2;
+	}
 }
 
 @media (max-width: 480px) {

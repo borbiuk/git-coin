@@ -2,8 +2,21 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
 		<meta name="color-scheme" content="light dark" />
+		<meta
+			name="theme-color"
+			content="#ffffff"
+			media="(prefers-color-scheme: light)"
+		/>
+		<meta
+			name="theme-color"
+			content="#0e1217"
+			media="(prefers-color-scheme: dark)"
+		/>
 		<meta
 			http-equiv="Content-Security-Policy"
 			content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'"
@@ -32,19 +45,22 @@
 		<main id="main" class="wrap" tabindex="-1">
 			<p class="disclaimer">
 				<strong>Not financial advice.</strong> Prices may be delayed,
-				missing or wrong. Data comes from public sources and is shown as
-				is.
+				missing or wrong.
 			</p>
 
 			<div id="banners" role="status"></div>
 
 			<section class="info" aria-label="Data freshness and source">
 				<p id="updated" class="updated">Loading the latest prices…</p>
-				<p id="source" class="muted"></p>
-				<p class="muted">
-					Updated about every 15 to 30 minutes when GitHub runs on
-					time. Runs can be late by hours.
-				</p>
+				<details class="more">
+					<summary>About this data</summary>
+					<p id="source" class="muted"></p>
+					<p class="muted">
+						Data comes from public sources and is shown as is.
+						Updated about every 15 to 30 minutes when GitHub runs on
+						time. Runs can be late by hours.
+					</p>
+				</details>
 			</section>
 
 			<noscript>
@@ -64,7 +80,10 @@
 
 			<section id="detail" aria-labelledby="detail-title" hidden>
 				<h2 id="detail-title"></h2>
-				<p id="detail-price" class="price"></p>
+				<p class="price">
+					<span id="detail-price"></span>
+					<span id="detail-unit" class="unit"></span>
+				</p>
 				<p id="detail-asof" class="muted"></p>
 
 				<div
@@ -96,17 +115,18 @@
 					role="group"
 					aria-label="Chart range"
 				></div>
+				<p id="chart-readout" class="readout" aria-hidden="true"></p>
 				<div id="chart" class="chart" role="img"></div>
 				<p id="chart-caption" class="muted"></p>
 				<p id="chart-status" class="muted" role="status"></p>
 
-				<div id="compare" hidden>
-					<h3 id="compare-title" class="chart-title">
+				<details id="compare" class="more" hidden>
+					<summary id="compare-title">
 						Source comparison, last 7 days
-					</h3>
+					</summary>
 					<div id="compare-chart" class="chart" role="img"></div>
 					<p id="compare-note" class="muted"></p>
-				</div>
+				</details>
 			</section>
 
 			<section id="multi" aria-labelledby="multi-title" hidden>
@@ -153,7 +173,7 @@
 							<tr>
 								<th scope="col">Show</th>
 								<th scope="col">Coin</th>
-								<th scope="col" class="num">At start</th>
+
 								<th scope="col" class="num">At latest</th>
 							</tr>
 						</thead>
@@ -164,6 +184,10 @@
 
 			<section id="all" aria-labelledby="all-title" hidden>
 				<h2 id="all-title">All coins</h2>
+				<p class="muted">
+					Prices in <span id="latest-unit"></span>. Press a heading to
+					sort. The line shows the last 7 days.
+				</p>
 				<div
 					class="table-wrap"
 					tabindex="0"
@@ -172,13 +196,7 @@
 				>
 					<table id="latest">
 						<thead>
-							<tr>
-								<th scope="col">Coin</th>
-								<th scope="col" class="num">Price</th>
-								<th scope="col" class="num">24h</th>
-								<th scope="col" class="num">7d</th>
-								<th scope="col" class="num">30d</th>
-							</tr>
+							<tr></tr>
 						</thead>
 						<tbody></tbody>
 					</table>

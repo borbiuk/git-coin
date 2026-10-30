@@ -111,6 +111,21 @@ export function formatPrice(value) {
 	return formatInUnit(value, digitsFor(Math.abs(value)));
 }
 
+/** The price without the unit name, for tables and headings that name the unit once. USD keeps its sign. */
+export function formatPriceBare(value) {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return '–';
+	}
+	const digits = digitsFor(Math.abs(value));
+	if (quote !== 'USD') {
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: digits,
+			maximumFractionDigits: digits,
+		}).format(value);
+	}
+	return formatInUnit(value, digits);
+}
+
 /** Shorter form for the chart axis: whole units from 1,000 up, and no unit name (the chart title has it). */
 export function formatAxisPrice(value) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -186,6 +201,26 @@ export function formatUtcTime(iso, nowMs) {
 		return time;
 	}
 	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${time}`;
+}
+
+/** "30 Oct 13:15 UTC", always with the date. `sec` is epoch seconds. */
+export function formatUtcStamp(sec) {
+	if (typeof sec !== 'number' || !Number.isFinite(sec)) {
+		return 'unknown time';
+	}
+	const d = new Date(sec * 1000);
+	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())} UTC`;
+}
+
+/** The line above the chart while a point is touched or pointed at: time, price and change since the first point. */
+export function formatReadout(sec, price, firstPrice) {
+	const parts = [formatUtcStamp(sec), formatPriceBare(price)];
+	if (firstPrice > 0 && Number.isFinite(price)) {
+		parts.push(
+			`${formatChange((price / firstPrice - 1) * 100).text} since start`
+		);
+	}
+	return parts.join(' · ');
 }
 
 /** One sentence that tells where the older prices come from, or an empty text when there is no history. */
@@ -498,12 +533,140 @@ function withFilled(out, filled, from) {
 	return out;
 }
 
+/** A length of time in words: "20 minutes", "6 hours", "3 days". `seconds` is rounded to the nearest unit. */
+export function formatSpan(seconds) {
+	const minutes = Math.max(1, Math.round(seconds / 60));
+	if (minutes < 60) {
+		return plural(minutes, 'minute');
+	}
+	const hours = Math.round(minutes / 60);
+	if (hours < 48) {
+		return plural(hours, 'hour');
+	}
+	return plural(Math.round(hours / 24), 'day');
+}
+
 /** One sentence that explains the shaded bands of a chart, or an empty text when the range has none. */
 export function filledNote(filled) {
 	if (!Array.isArray(filled) || filled.length === 0) {
 		return '';
 	}
-	return 'Shaded: no scheduled run in this time. The prices there are 15-minute candle closes from Bitstamp. Hatched: no data.';
+	const total = filled.reduce((sum, [from, to]) => sum + (to - from), 0);
+	return `Shaded: no scheduled run in this time (${formatSpan(total)} in this range). The prices there are 15-minute candle closes from Bitstamp. Hatched: no data.`;
+}
+
+// Ten colours for the coins of the comparison. The pairs of a theme are in style.css (--coin-1 to --coin-10).
+export const COIN_COLOURS = 10;
+
+/** The colour slot (1 to 10) of a coin: its place in the list of coins, so a coin keeps its colour. */
+export function coinSlot(ids, id) {
+	const index = ids.indexOf(id);
+	return ((index < 0 ? 0 : index) % COIN_COLOURS) + 1;
+}
+
+/** "#BTC/7d": the coin and the range of the chart, so a link opens the same view. */
+export function hashFor(coin, range) {
+	return `#${encodeURIComponent(coin)}/${encodeURIComponent(range)}`;
+}
+
+/** The coin and the range in a URL hash. A missing or unknown part is null. Old links have only the coin. */
+export function parseHash(hash) {
+	const [coinPart = '', rangePart = ''] = String(hash)
+		.replace(/^#/, '')
+		.split('/');
+	const decode = (text) => {
+		try {
+			return decodeURIComponent(text);
+		} catch {
+			return '';
+		}
+	};
+	const coin = decode(coinPart);
+	const range = decode(rangePart);
+	return {
+		coin: coin === '' ? null : coin,
+		range: Object.hasOwn(RANGES, range) ? range : null,
+	};
+}
+
+// The columns of the table of all coins. The first click on a column gives its natural order.
+export const SORT_KEYS = {
+	order: { dir: 'asc' },
+	coin: { dir: 'asc' },
+	price: { dir: 'desc' },
+	'24h': { dir: 'desc' },
+	'7d': { dir: 'desc' },
+	'30d': { dir: 'desc' },
+};
+
+/**
+ * The state after a click on a column. A new column starts with its own direction, the second click flips
+ * it, and the third click goes back to the order of the coin list.
+ */
+export function nextSort(current, key) {
+	const natural = SORT_KEYS[key]?.dir ?? 'desc';
+	if (current.key !== key) {
+		return { key, dir: natural };
+	}
+	if (current.dir === natural) {
+		return { key, dir: natural === 'asc' ? 'desc' : 'asc' };
+	}
+	return { key: 'order', dir: 'asc' };
+}
+
+/** A copy of the rows in the order of the sort. Rows without a value come last in both directions. */
+export function sortOverview(rows, sort) {
+	const value = (row) => {
+		if (sort.key === 'coin') {
+			return row.id;
+		}
+		return row[sort.key] ?? null;
+	};
+	const sign = sort.dir === 'asc' ? 1 : -1;
+	return rows
+		.map((row, index) => ({ row, index }))
+		.sort((a, b) => {
+			const x = value(a.row);
+			const y = value(b.row);
+			if (x === null && y === null) {
+				return a.index - b.index;
+			}
+			if (x === null) {
+				return 1;
+			}
+			if (y === null) {
+				return -1;
+			}
+			const order = typeof x === 'string' ? x.localeCompare(y) : x - y;
+			return order * sign || a.index - b.index;
+		})
+		.map((item) => item.row);
+}
+
+/**
+ * The points of a sparkline as fractions of its box: x from the first to the last time, y from the lowest
+ * (0) to the highest (1) price of the series itself. At most `max` points are kept, the last one always.
+ */
+export function sparkPoints(t, p, max = 96) {
+	if (t.length < 2 || t.length !== p.length) {
+		return null;
+	}
+	const low = Math.min(...p);
+	const high = Math.max(...p);
+	const first = t[0];
+	const span = t[t.length - 1] - first;
+	const step = Math.max(1, Math.ceil((t.length - 1) / (max - 1)));
+	const points = [];
+	for (let i = 0; i < t.length; i += step) {
+		points.push(i);
+	}
+	if (points[points.length - 1] !== t.length - 1) {
+		points.push(t.length - 1);
+	}
+	return {
+		x: points.map((i) => (span > 0 ? (t[i] - first) / span : 0)),
+		y: points.map((i) => (high > low ? (p[i] - low) / (high - low) : 0.5)),
+	};
 }
 
 /** The daily file as a line of closing prices. */

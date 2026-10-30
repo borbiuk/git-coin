@@ -8,6 +8,7 @@ import {
 	alertSummary,
 	breakGaps,
 	coinDataUrl,
+	coinSlot,
 	dailyToPoints,
 	filledNote,
 	formatAxisPrice,
@@ -15,15 +16,23 @@ import {
 	formatPercentAxis,
 	formatLastUpdated,
 	formatPrice,
+	formatPriceBare,
+	formatReadout,
+	formatUtcStamp,
 	formatUtcTime,
+	hashFor,
 	historyNote,
 	issueUrl,
 	mergeSources,
+	nextSort,
+	parseHash,
 	quoteName,
 	rebase,
 	setQuote,
 	sliceRange,
+	sortOverview,
 	sourceInfo,
+	sparkPoints,
 	staleBanner,
 	staleLimits,
 	staleState,
@@ -43,6 +52,8 @@ const app = {
 	alerts: null,
 	coin: null,
 	range: '7d',
+	// The order of the table of all coins: the coin list order until a heading is pressed
+	sort: { key: 'order', dir: 'asc' },
 	chart: null,
 	compare: null,
 	// The coin comparison: the coins on the chart, the 0% base and the range are the reader's choice
@@ -54,8 +65,11 @@ const app = {
 		range: '7d',
 		focus: null,
 		rows: [],
+		compact: false,
 	},
 	cache: new Map(),
+	// The 7 day series of every coin, for the lines of the overview table. Null until they are loaded.
+	sparks: null,
 	drawToken: 0,
 	compareToken: 0,
 };
@@ -192,43 +206,190 @@ function renderChips() {
 	setPressed(box, app.coin);
 }
 
+// The columns of the table of all coins that can be sorted. The line of the last 7 days is the last cell.
+const OVERVIEW_COLUMNS = [
+	{ key: 'coin', label: 'Coin', num: false },
+	{ key: 'price', label: 'Price', num: true },
+	{ key: '24h', label: '24h', num: true },
+	{ key: '7d', label: '7d', num: true },
+	{ key: '30d', label: '30d', num: true },
+];
+
+// The headings are sort buttons. They are built once, so keyboard focus stays on the one that was used.
+function renderOverviewHead() {
+	const head = $('latest').querySelector('thead tr');
+	if (head.children.length === 0) {
+		for (const column of OVERVIEW_COLUMNS) {
+			const button = el(
+				'button',
+				{ type: 'button', class: 'sort', 'data-key': column.key },
+				column.label,
+				el('span', { class: 'sort-mark', 'aria-hidden': 'true' })
+			);
+			button.addEventListener('click', () => {
+				app.sort = nextSort(app.sort, column.key);
+				renderTable();
+			});
+			head.append(
+				el(
+					'th',
+					{ scope: 'col', class: column.num ? 'num' : '' },
+					button
+				)
+			);
+		}
+		head.append(
+			el('th', { scope: 'col', class: 'col-spark', text: 'Trend' })
+		);
+	}
+	for (const th of head.children) {
+		const button = th.querySelector('.sort');
+		if (!button) {
+			continue;
+		}
+		const active = button.dataset.key === app.sort.key;
+		const dir = app.sort.dir === 'asc' ? 'ascending' : 'descending';
+		th.setAttribute('aria-sort', active ? dir : 'none');
+		button.querySelector('.sort-mark').textContent = active
+			? app.sort.dir === 'asc'
+				? '▲'
+				: '▼'
+			: '';
+	}
+}
+
+function overviewRows() {
+	return Object.entries(app.latest.coins).map(([id, coin]) => ({
+		id,
+		name: coin.name,
+		price: coin.price,
+		'24h': coin.periods['24h'].change_pct,
+		'7d': coin.periods['7d'].change_pct,
+		'30d': coin.periods['30d'].change_pct,
+	}));
+}
+
+// The row of the selected coin is marked
+function markCurrent() {
+	for (const tr of $('latest').querySelectorAll('tbody tr')) {
+		if (tr.dataset.id === app.coin) {
+			tr.setAttribute('aria-current', 'true');
+		} else {
+			tr.removeAttribute('aria-current');
+		}
+	}
+}
+
+// A line of the last 7 days in the colour of the coin, scaled to the prices of that coin alone
+function paintSparks() {
+	const ratio = window.devicePixelRatio || 1;
+	const ids = coinIds();
+	for (const canvas of $('latest').querySelectorAll('canvas.spark')) {
+		const series = app.sparks?.get(canvas.dataset.id);
+		const points = series ? sparkPoints(series.t, series.p) : null;
+		const width = canvas.clientWidth || 88;
+		const height = canvas.clientHeight || 28;
+		canvas.width = Math.round(width * ratio);
+		canvas.height = Math.round(height * ratio);
+		if (!points) {
+			continue;
+		}
+		const ctx = canvas.getContext('2d');
+		ctx.scale(ratio, ratio);
+		const pad = 3;
+		const at = (i) => [
+			pad + points.x[i] * (width - 2 * pad),
+			height - pad - points.y[i] * (height - 2 * pad),
+		];
+		ctx.strokeStyle = cssVar(`--coin-${coinSlot(ids, canvas.dataset.id)}`);
+		ctx.fillStyle = ctx.strokeStyle;
+		ctx.lineWidth = 1.5;
+		ctx.lineJoin = 'round';
+		ctx.beginPath();
+		points.x.forEach((x, i) => {
+			const [px, py] = at(i);
+			if (i === 0) {
+				ctx.moveTo(px, py);
+			} else {
+				ctx.lineTo(px, py);
+			}
+		});
+		ctx.stroke();
+		const [lastX, lastY] = at(points.x.length - 1);
+		ctx.beginPath();
+		ctx.arc(lastX, lastY, 2.5, 0, Math.PI * 2);
+		ctx.fill();
+	}
+}
+
+async function loadSparks() {
+	const ids = coinIds();
+	const loaded = await Promise.allSettled(
+		ids.map((id) => getSeries(id, '7d'))
+	);
+	app.sparks = new Map(
+		ids.map((id, i) => [
+			id,
+			loaded[i].status === 'fulfilled' ? loaded[i].value : null,
+		])
+	);
+	paintSparks();
+}
+
 function renderTable() {
+	renderOverviewHead();
 	const body = $('latest').querySelector('tbody');
 	body.replaceChildren();
-	for (const [id, coin] of Object.entries(app.latest.coins)) {
-		const pick = el('button', {
-			type: 'button',
-			class: 'link-button',
-			'aria-label': `Show ${coin.name} (${id}) in the chart`,
-			text: id,
-		});
+	$('latest-unit').textContent = quoteName();
+	const ids = coinIds();
+	for (const row of sortOverview(overviewRows(), app.sort)) {
+		const pick = el(
+			'button',
+			{
+				type: 'button',
+				class: 'link-button',
+				'aria-label': `Show ${row.name} (${row.id}) in the chart`,
+			},
+			el('span', { class: 'swatch', 'aria-hidden': 'true' }),
+			row.id
+		);
 		pick.addEventListener('click', () => {
-			selectCoin(id);
+			selectCoin(row.id);
 			$('detail').scrollIntoView({ block: 'start' });
 		});
 		body.append(
 			el(
 				'tr',
-				{},
-				el('th', { scope: 'row' }, pick),
-				el('td', { class: 'num', text: formatPrice(coin.price) }),
-				el(
-					'td',
-					{ class: 'num' },
-					changeNode(coin.periods['24h'].change_pct)
+				{ class: `coin-${coinSlot(ids, row.id)}`, 'data-id': row.id },
+				el('th', { scope: 'row', class: 'col-coin' }, pick),
+				el('td', {
+					class: 'num col-price',
+					text: formatPriceBare(row.price),
+				}),
+				...['24h', '7d', '30d'].map((key) =>
+					el(
+						'td',
+						{ class: `num col-${key}`, 'data-label': key },
+						changeNode(row[key])
+					)
 				),
 				el(
 					'td',
-					{ class: 'num' },
-					changeNode(coin.periods['7d'].change_pct)
-				),
-				el(
-					'td',
-					{ class: 'num' },
-					changeNode(coin.periods['30d'].change_pct)
+					{ class: 'col-spark' },
+					el('canvas', {
+						class: 'spark',
+						'data-id': row.id,
+						'aria-hidden': 'true',
+					})
 				)
 			)
 		);
+	}
+	markCurrent();
+	if (app.sparks) {
+		paintSparks();
+	} else {
+		loadSparks();
 	}
 
 	const missing = Object.entries(app.status?.coins ?? {})
@@ -248,7 +409,9 @@ function renderDetail() {
 	const coin = app.latest.coins[app.coin];
 	$('detail').hidden = false;
 	$('detail-title').textContent = `${coin.name} (${app.coin})`;
-	$('detail-price').textContent = formatPrice(coin.price);
+	$('detail-price').textContent = formatPriceBare(coin.price);
+	$('detail-unit').textContent =
+		app.latest.quote === 'USD' ? '' : app.latest.quote;
 
 	const now = Date.now();
 	const limits = staleLimits(app.status);
@@ -267,8 +430,8 @@ function renderDetail() {
 				{},
 				el('th', { scope: 'row', text: key }),
 				el('td', {}, changeNode(period.change_pct)),
-				el('td', { text: formatPrice(period.high) }),
-				el('td', { text: formatPrice(period.low) })
+				el('td', { text: formatPriceBare(period.high) }),
+				el('td', { text: formatPriceBare(period.low) })
 			)
 		);
 	}
@@ -318,6 +481,7 @@ function destroyChart() {
 		app.chart.destroy();
 		app.chart = null;
 	}
+	$('chart-readout').textContent = '';
 }
 
 // Points that get a marker: both ends of every run of points around a gap, and the last point
@@ -429,6 +593,118 @@ function drawGaps(u, spans, colors, filled = []) {
 	ctx.restore();
 }
 
+// Time labels of the x axis, 24-hour clock and UTC. A new day or year is written under the first tick of it.
+// Each row: tick step in seconds, default, year, month, day, hour, minute, second, mode (uPlot axis format).
+const TIME_AXIS = [
+	[31536000, '{YYYY}', null, null, null, null, null, null, 1],
+	[2419200, '{MMM}', '\n{YYYY}', null, null, null, null, null, 1],
+	[86400, '{D} {MMM}', '\n{YYYY}', null, null, null, null, null, 1],
+	[
+		3600,
+		'{HH}:{mm}',
+		'\n{D} {MMM} {YYYY}',
+		null,
+		'\n{D} {MMM}',
+		null,
+		null,
+		null,
+		1,
+	],
+	[
+		60,
+		'{HH}:{mm}',
+		'\n{D} {MMM} {YYYY}',
+		null,
+		'\n{D} {MMM}',
+		null,
+		null,
+		null,
+		1,
+	],
+	[
+		1,
+		':{ss}',
+		'\n{D} {MMM} {YYYY} {HH}:{mm}',
+		null,
+		'\n{D} {MMM} {HH}:{mm}',
+		null,
+		'\n{HH}:{mm}',
+		null,
+		1,
+	],
+];
+
+// A dashed line at the latest price and its value on a plate at the right edge
+function drawLast(u, price, colors) {
+	const { ctx, bbox } = u;
+	const ratio = window.devicePixelRatio || 1;
+	const y = u.valToPos(price, 'y', true);
+	if (y < bbox.top || y > bbox.top + bbox.height) {
+		return;
+	}
+	ctx.save();
+	ctx.strokeStyle = colors.accent;
+	ctx.lineWidth = ratio;
+	ctx.setLineDash([4 * ratio, 4 * ratio]);
+	ctx.beginPath();
+	ctx.moveTo(bbox.left, y);
+	ctx.lineTo(bbox.left + bbox.width, y);
+	ctx.stroke();
+	ctx.setLineDash([]);
+	ctx.font = `600 ${12 * ratio}px ${colors.font}`;
+	ctx.textAlign = 'right';
+	ctx.textBaseline = 'middle';
+	const label = formatPriceBare(price);
+	const width = ctx.measureText(label).width + 10 * ratio;
+	const height = 18 * ratio;
+	// The plate sits above the line, or below it when the line is at the top
+	const top =
+		y - height - 2 * ratio >= bbox.top
+			? y - height - 2 * ratio
+			: y + 2 * ratio;
+	const right = bbox.left + bbox.width;
+	ctx.fillStyle = colors.accent;
+	ctx.fillRect(right - width, top, width, height);
+	ctx.fillStyle = colors.onAccent;
+	ctx.fillText(label, right - 5 * ratio, top + height / 2);
+	ctx.restore();
+}
+
+// The line above the chart: the point under the cursor, or the latest point when there is none
+function updateChartReadout(u, series) {
+	const index = u.cursor.idx;
+	const last = series.t.length - 1;
+	const first = series.p.find((v) => v !== null);
+	const out = $('chart-readout');
+	if (index == null) {
+		out.textContent = `Latest: ${formatReadout(series.t[last], series.p[last], first)}`;
+		return;
+	}
+	const price = series.p[index];
+	out.textContent =
+		price === null
+			? `${formatUtcStamp(series.t[index])} · no data`
+			: formatReadout(series.t[index], price, first);
+}
+
+// uPlot follows the mouse only. A finger dragged along the chart moves the crosshair the same way, and
+// `touch-action: pan-y` (style.css) leaves the drag up or down to the page.
+function followTouch(u) {
+	const over = u.over;
+	const move = (event) => {
+		if (event.pointerType !== 'touch') {
+			return;
+		}
+		const box = over.getBoundingClientRect();
+		u.setCursor({
+			left: event.clientX - box.left,
+			top: event.clientY - box.top,
+		});
+	};
+	over.addEventListener('pointerdown', move);
+	over.addEventListener('pointermove', move);
+}
+
 function drawChart(series) {
 	destroyChart();
 	const host = $('chart');
@@ -448,10 +724,12 @@ function drawChart(series) {
 		hatch: cssVar('--border'),
 		font: cssVar('--font'),
 		accent: cssVar('--accent'),
+		onAccent: cssVar('--on-accent'),
 	};
 	const spans = gapSpans(data.t, data.p);
 	const filled = series.filled ?? [];
 	const markers = markerIndices(data.p);
+	const latest = data.p[data.p.length - 1];
 	const axis = {
 		stroke: muted,
 		grid: { stroke: grid, width: 1 },
@@ -462,12 +740,19 @@ function drawChart(series) {
 			width: Math.max(host.clientWidth, 200),
 			height: chartHeight(),
 			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
+			// The readout above the chart replaces the legend, which showed empty values until a point was touched
+			legend: { show: false },
 			cursor: {
 				y: false,
 				drag: { x: false, y: false },
 				points: { size: 9, width: 2, fill: bg, stroke: line },
 			},
-			hooks: { drawClear: [(u) => drawGaps(u, spans, colors, filled)] },
+			hooks: {
+				ready: [followTouch],
+				drawClear: [(u) => drawGaps(u, spans, colors, filled)],
+				draw: [(u) => drawLast(u, latest, colors)],
+				setCursor: [(u) => updateChartReadout(u, data)],
+			},
 			series: [
 				{ value: '{YYYY}-{MM}-{DD} {HH}:{mm} UTC' },
 				{
@@ -487,7 +772,7 @@ function drawChart(series) {
 				},
 			],
 			axes: [
-				{ ...axis },
+				{ ...axis, values: TIME_AXIS },
 				{
 					...axis,
 					values: (u, ticks) => ticks.map(formatAxisPrice),
@@ -502,6 +787,7 @@ function drawChart(series) {
 		[data.t, data.p],
 		host
 	);
+	updateChartReadout(app.chart, data);
 }
 
 // ----- source comparison (shown only while the data holds more than one source)
@@ -756,6 +1042,11 @@ function shownRows() {
 }
 
 // Highlights the line of one coin (or none), from the table or from the chart
+// The colour of a coin: the same in the lines, the names at their ends, the table and the overview
+function coinColour(id) {
+	return cssVar(`--coin-${coinSlot(coinIds(), id)}`);
+}
+
 function focusLine(id) {
 	const chart = app.multi.chart;
 	if (!chart) {
@@ -831,7 +1122,7 @@ function drawMultiOverlay(u, rows, colors) {
 	const focus = app.multi.focus;
 	if (focus) {
 		const values = u.data[focus];
-		ctx.strokeStyle = colors.accent;
+		ctx.strokeStyle = coinColour(rows[focus - 1].id);
 		ctx.lineWidth = 2.5 * ratio;
 		ctx.lineJoin = 'round';
 		ctx.beginPath();
@@ -855,27 +1146,13 @@ function drawMultiOverlay(u, rows, colors) {
 	ctx.restore();
 }
 
-// Names at the end of the lines: every coin when there are few, else the two highest, the two lowest and the focused one
-function drawMultiEnds(u, rows, colors) {
-	const order = rows
-		.map((row, i) => i)
-		.sort((a, b) => rows[b].end - rows[a].end);
-	const named = new Set(
-		rows.length <= 6 ? order : [...order.slice(0, 2), ...order.slice(-2)]
-	);
-	const focus = app.multi.focus;
-	if (focus) {
-		named.add(focus - 1);
-	}
-	const ends = rows.map((row, i) =>
-		named.has(i)
-			? {
-					name: `${row.id} ${formatChange(row.end).text}`,
-					color: i === focus - 1 ? colors.accent : colors.text,
-					shape: 'circle',
-				}
-			: null
-	);
+// Names at the end of the lines, in the colour of each coin. On a narrow screen the name is the coin only.
+function drawMultiEnds(u, rows, colors, compact) {
+	const ends = rows.map((row) => ({
+		name: compact ? row.id : `${row.id} ${formatChange(row.end).text}`,
+		color: coinColour(row.id),
+		shape: 'circle',
+	}));
 	drawEnds(u, ends, colors);
 }
 
@@ -922,6 +1199,9 @@ function drawMulti() {
 		accent: cssVar('--accent'),
 	};
 	const spans = gapSpans(merged.t, merged.columns[0]);
+	// A phone has no room for the percent beside every name: the table below has them
+	const compact = host.clientWidth < 480;
+	app.multi.compact = compact;
 	const axis = {
 		stroke: muted,
 		grid: { stroke: grid, width: 1 },
@@ -932,7 +1212,7 @@ function drawMulti() {
 			width: Math.max(host.clientWidth, 200),
 			height: chartHeight(),
 			// Room on the right for the names at the ends of the lines
-			padding: [8, 112, 0, 0],
+			padding: [8, compact ? 64 : 112, 0, 0],
 			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
 			legend: { show: false },
 			focus: { alpha: 0.3 },
@@ -957,7 +1237,7 @@ function drawMulti() {
 				draw: [
 					(u) => {
 						drawMultiOverlay(u, rows, colors);
-						drawMultiEnds(u, rows, colors);
+						drawMultiEnds(u, rows, colors, compact);
 					},
 				],
 			},
@@ -965,7 +1245,7 @@ function drawMulti() {
 				{ value: '{YYYY}-{MM}-{DD} {HH}:{mm} UTC' },
 				...rows.map((row) => ({
 					label: row.id,
-					stroke: muted,
+					stroke: coinColour(row.id),
 					width: 1.5,
 					spanGaps: false,
 					points: { show: false },
@@ -1018,10 +1298,14 @@ function renderMultiTable() {
 		});
 		const tr = el(
 			'tr',
-			{},
+			{ class: `coin-${coinSlot(coinIds(), row.id)}` },
 			el('td', {}, el('label', { class: 'check' }, box)),
-			el('th', { scope: 'row', text: row.id }),
-			el('td', { class: 'num' }, changeNode(row.start)),
+			el(
+				'th',
+				{ scope: 'row' },
+				el('span', { class: 'swatch', 'aria-hidden': 'true' }),
+				row.id
+			),
 			el('td', { class: 'num' }, changeNode(row.end))
 		);
 		tr.addEventListener('mouseenter', () => focusLine(row.id));
@@ -1124,15 +1408,23 @@ function renderMultiButtons() {
 	});
 }
 
-async function getSeries(id, file) {
+// The request is cached, not only its answer, so the overview and the comparison never fetch a file twice
+function getSeries(id, file) {
 	const key = `${id}.${file}`;
 	if (!app.cache.has(key)) {
-		const json = await fetchJson(coinDataUrl(id, file));
 		const keys = file === 'daily' ? ['t', 'c'] : ['t', 'p'];
-		if (!validSeries(json, keys)) {
-			throw new Error(`${key}: unexpected data`);
-		}
-		app.cache.set(key, file === 'daily' ? dailyToPoints(json) : json);
+		const request = fetchJson(coinDataUrl(id, file)).then((json) => {
+			if (!validSeries(json, keys)) {
+				throw new Error(`${key}: unexpected data`);
+			}
+			return file === 'daily' ? dailyToPoints(json) : json;
+		});
+		app.cache.set(key, request);
+		request.catch(() => {
+			if (app.cache.get(key) === request) {
+				app.cache.delete(key);
+			}
+		});
 	}
 	return app.cache.get(key);
 }
@@ -1210,6 +1502,7 @@ function renderRanges() {
 		button.addEventListener('click', () => {
 			app.range = key;
 			setPressed(box, key);
+			syncHash();
 			loadChart();
 		});
 		box.append(button);
@@ -1217,24 +1510,22 @@ function renderRanges() {
 	setPressed(box, app.range);
 }
 
+// The link shows the coin and the range, so it opens the same chart
+function syncHash() {
+	history.replaceState(null, '', hashFor(app.coin, app.range));
+}
+
 function selectCoin(id) {
 	app.coin = id;
-	history.replaceState(null, '', `#${encodeURIComponent(id)}`);
+	syncHash();
 	renderChips();
+	markCurrent();
 	renderDetail();
 	loadChart();
 	loadCompare();
 }
 
 // ----- loading
-
-function hashCoin() {
-	try {
-		return decodeURIComponent(location.hash.slice(1));
-	} catch {
-		return '';
-	}
-}
 
 async function loadAll() {
 	const [status, latest, alerts] = await Promise.allSettled([
@@ -1250,6 +1541,7 @@ async function loadAll() {
 			app.latest.generated_at !== latest.value.generated_at
 		) {
 			app.cache.clear();
+			app.sparks = null;
 		}
 		app.latest = latest.value;
 		setQuote(app.latest.quote);
@@ -1269,7 +1561,7 @@ async function loadAll() {
 	);
 	renderSource();
 	const ids = coinIds();
-	const wanted = hashCoin();
+	const wanted = parseHash(location.hash).coin;
 	const first = ids.includes(app.coin) ? app.coin : wanted;
 	app.coin = ids.includes(first) ? first : (ids[0] ?? null);
 	if (app.coin === null) {
@@ -1285,6 +1577,7 @@ async function loadAll() {
 }
 
 function start() {
+	app.range = parseHash(location.hash).range ?? app.range;
 	renderRanges();
 	renderMultiButtons();
 	loadAll();
@@ -1296,11 +1589,24 @@ function start() {
 			loadChart();
 			loadCompare();
 			drawMulti();
+			paintSparks();
 		}
 	};
 	window
 		.matchMedia('(prefers-color-scheme: dark)')
 		.addEventListener('change', redraw);
+	// An edited link or the back button opens the chart it names
+	window.addEventListener('hashchange', () => {
+		const { coin, range } = parseHash(location.hash);
+		if (range !== null && range !== app.range) {
+			app.range = range;
+			setPressed($('ranges'), range);
+			loadChart();
+		}
+		if (coin !== null && coin !== app.coin && coinIds().includes(coin)) {
+			selectCoin(coin);
+		}
+	});
 	new ResizeObserver(() => {
 		const host = $('chart');
 		if (app.chart && host.clientWidth > 0) {
@@ -1322,6 +1628,11 @@ function start() {
 	new ResizeObserver(() => {
 		const host = $('multi-chart');
 		if (app.multi.chart && host.clientWidth > 0) {
+			// The names at the line ends are short on a narrow screen, so a change of the width class redraws
+			if (app.multi.compact !== host.clientWidth < 480) {
+				drawMulti();
+				return;
+			}
 			app.multi.chart.setSize({
 				width: host.clientWidth,
 				height: chartHeight(),

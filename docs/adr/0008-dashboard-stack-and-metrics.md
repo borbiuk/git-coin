@@ -107,8 +107,8 @@ data/coins/<ID>.daily.json  all history, daily open/high/low/close
 4. Data freshness: "Last updated 14:03 UTC (12 minutes ago)". Banner "Data is delayed" if older than 120 minutes, "Collector appears stopped" if older than 6 hours (ADR 0005 D6). Banners use `role="status"`.
 5. Labels: "Source: Kraken. Quote: USD. Cross-checked against CoinGecko" with links. If CoinGecko data is ever shown, add "Data provided by CoinGecko" next to it.
 6. The list of the last 10 alerts with links to their Issues.
-7. Disclaimer, visible without scrolling on a phone (footer is not enough): "Not financial advice. Prices may be delayed, missing or wrong. Data comes from public sources and is shown as is."
-8. Expected freshness note: "Updated about every 15 to 30 minutes when GitHub runs on time. Runs can be late by hours."
+7. Disclaimer, visible without scrolling on a phone (footer is not enough): "Not financial advice. Prices may be delayed, missing or wrong." The rest ("Data comes from public sources and is shown as is.") is in the "About this data" block (D8).
+8. Expected freshness note: "Updated about every 15 to 30 minutes when GitHub runs on time. Runs can be late by hours." It is in the "About this data" block (D8).
 
 ### D5. Later list (not in v1)
 
@@ -129,7 +129,7 @@ data/coins/<ID>.daily.json  all history, daily open/high/low/close
 ### D7. Prices are shown in USDT (2026-10-30)
 
 - The owner asked for USDT. Decision: convert at build time. The data stays in USD. `config/coins.json` has one more entry, `USDT` with `"role": "rate"`, that the collector fetches like a coin (Kraken `USDTUSD`, Coinbase `USDT-USD`, Bitstamp `usdtusd`, Coin Metrics `usdt`). The site builder divides every price by the rate nearest in time (at most 24 hours away, else the point is dropped) and writes the result with 12 significant digits. `latest.json` has `"quote": "USDT"`. The rate entry itself gets no file and no tab, and its alerts must be off (the config check enforces it).
-- The page reads `quote` from `latest.json` and writes it after the number (`78,864.69 USDT`). The chart axis has no unit name. The footer and the screen reader texts name the unit.
+- The page reads `quote` from `latest.json`. The unit is written once (next to the big price and in the headings of the tables, D8), not after every number. The chart axis has no unit name. The footer and the screen reader texts name the unit.
 - Cost: 11 entries per run, so 44 rows per run in the test phase and one more Coinbase request (11 instead of 10). The other sources still need one request. The change was measured against the live sources on 2026-10-30: all four returned the rate (a dry run wrote 44 rows).
 - Alerts do not change. They read the stored USD rows and use percent moves, which the conversion would change only by the move of the rate itself.
 - History (2026-10-30): rows with `src=bs-ohlc` (15-minute Bitstamp candles from 2024-01-01 to 2026-10-28, written once by `tools/backfill-bitstamp.ts`) fill the time before the first live row of the primary source. The builder joins them per entry (the rate entry too), and converts the joined series like any other. A history row after the first live row is a candle of a missed run: it is kept (ADR 0004 D3, missed runs), unless a live sample is within 5 minutes. `latest.json` then has `history: { src, until }` and the page says where the older prices come from. Kraken and Bitstamp differ by a few hundredths of a percent, so the join shows no visible step. The 24h change stays empty while the data has a gap near 24 hours ago (the live rows start at 2026-10-29T20:46Z).
@@ -140,12 +140,28 @@ data/coins/<ID>.daily.json  all history, daily open/high/low/close
     - Only a relabel from USD to USDT. It would be wrong: the two differ (USDT was 0.99885 USD on Coin Metrics on 2026-10-29).
 - Open: the rate follows the primary source. If the primary source has no `USDT` row for a day, the prices of that day are missing from the page (a gap), not shown in USD.
 
+### D8. UX revision (2026-10-30)
+
+An audit of the live page on a phone (375 px and 320 px) and a research of 10 topics (chart types, ranges, touch, colour, hierarchy, sparklines, gaps, number formats, performance, theming) gave these changes. No new data files and no new library.
+
+- First screen on a phone: the disclaimer is one line. The source note and the update note moved into a closed "About this data" block (a `<details>`), so the price and the stats come into view. The "Source comparison" is a closed `<details>` too.
+- Tables on a phone never scroll sideways: the stats table has no unit in its cells, and the table of all coins turns into cards (name, a line of the last 7 days and the price; then the 24h, 7d and 30d changes). Its headings are sort buttons (a click sorts, a second click flips, a third goes back to the list order) with `aria-sort`.
+- The table of all coins stays below the charts. Reason: a table of ten cards pushes the chart below the first screen on a phone, and the coin buttons at the top already select a coin. The row of the selected coin is marked.
+- Touch: `touch-action: pan-y` on the plot. uPlot follows the mouse only, so `app.js` moves the crosshair with Pointer Events of type `touch`; a drag up or down still scrolls the page. The line above the chart shows the time, price and change since the start of the range for the touched point, and the latest point when nothing is touched. It replaces the uPlot legend, which showed empty values.
+- Chart: a dashed line and a plate with the latest price; the time axis uses a 24-hour clock in UTC with the day or year under the first tick of it (`TIME_AXIS` in `app.js`).
+- Coin comparison: every coin has one of ten colours (`--coin-1` to `--coin-10`, a pair for each theme, at least 3:1 against the background), the same in the lines, the names at their ends, the table and the overview. All names are drawn (only the coin on a narrow screen). The "At start" column is gone: it was always 0%.
+- The link is `#BTC/7d` (coin and range). An old link with only the coin still works.
+- Gap note under the chart tells how much of the range was filled with candles.
+- Checkboxes are 24 px (their label is 44 px). Safe-area insets and `theme-color` are set.
+- Not done, on purpose: log scale, candlesticks, a UTC/local switch, small multiples, hiding range buttons that lack data (the history starts in 2024, so every range has data).
+- Research limits: some sources were not readable (403, PDF). The claims about Binance, Kraken and the exact CoinGecko layout have no first-hand source. The touch behaviour was checked with synthetic pointer events in a desktop browser, not on a real phone.
+
 ## Consequences
 
 - Good: a tiny site (about 22 KB of library plus about 150 lines) and no toolchain.
 - Good: the client never parses large series.
 - Bad: vendored uPlot is not updated by Dependabot. Its last npm release is 19 months old. The fallback is Chart.js or lightweight-charts. Planned replacement path: both are drop-in for line charts with the same data files.
-- Bad: no touch zoom in v1. Range buttons cover it. Check on a real phone.
+- Bad: no touch zoom in v1. Range buttons cover it. Touch drag moves the crosshair (D8). Check on a real phone.
 - Bad: the dashboard depends on the collector's build step (derived files). A bug there breaks the page, not the data.
 - Bad: dark-mode and accessibility details per library were not verified from docs. Test the page.
 

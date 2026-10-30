@@ -623,3 +623,130 @@ test('filledNote explains the shaded bands only when the range has some', () => 
 	assert.match(lib.filledNote([[1, 2]]), /no scheduled run/i);
 	assert.match(lib.filledNote([[1, 2]]), /hatched: no data/i);
 });
+
+test('filledNote tells how much time of the range was filled', () => {
+	assert.match(lib.filledNote([[0, 3600 * 2]]), /\(2 hours in this range\)/);
+	assert.match(
+		lib.filledNote([
+			[0, 3600],
+			[7200, 10800],
+		]),
+		/\(2 hours in this range\)/
+	);
+});
+
+test('formatSpan writes minutes, hours and days', () => {
+	assert.equal(lib.formatSpan(30), '1 minute');
+	assert.equal(lib.formatSpan(20 * 60), '20 minutes');
+	assert.equal(lib.formatSpan(90 * 60), '2 hours');
+	assert.equal(lib.formatSpan(47 * 3600), '47 hours');
+	assert.equal(lib.formatSpan(3 * 86400), '3 days');
+});
+
+test('formatPriceBare leaves the unit name to the heading', () => {
+	assert.equal(lib.formatPriceBare(47349.8), '$47,349.80');
+	lib.setQuote('USDT');
+	try {
+		assert.equal(lib.formatPriceBare(47349.8), '47,349.80');
+		assert.equal(lib.formatPriceBare(0.22325), '0.2233');
+		assert.equal(lib.formatPriceBare(null), '–');
+	} finally {
+		lib.setQuote('USD');
+	}
+});
+
+test('formatUtcStamp and formatReadout always show the date, the price and the change since the start', () => {
+	const sec = Date.parse('2026-10-30T13:15:00Z') / 1000;
+	assert.equal(lib.formatUtcStamp(sec), '30 Oct 13:15 UTC');
+	assert.equal(lib.formatUtcStamp(Number.NaN), 'unknown time');
+	lib.setQuote('USDT');
+	try {
+		assert.equal(
+			lib.formatReadout(sec, 99, 100),
+			'30 Oct 13:15 UTC · 99.00 · −1.00% since start'
+		);
+		assert.equal(lib.formatReadout(sec, 99, 0), '30 Oct 13:15 UTC · 99.00');
+	} finally {
+		lib.setQuote('USD');
+	}
+});
+
+test('coinSlot gives every coin a stable colour from 1 to 10 and wraps around', () => {
+	const ids = ['BTC', 'ETH', 'BNB'];
+	assert.equal(lib.coinSlot(ids, 'BTC'), 1);
+	assert.equal(lib.coinSlot(ids, 'BNB'), 3);
+	assert.equal(lib.coinSlot(ids, 'XYZ'), 1);
+	const many = Array.from({ length: 12 }, (_, i) => `C${i}`);
+	assert.equal(lib.coinSlot(many, 'C9'), 10);
+	assert.equal(lib.coinSlot(many, 'C10'), 1);
+});
+
+test('hashFor and parseHash keep the coin and the range in the link', () => {
+	assert.equal(lib.hashFor('BTC', '30d'), '#BTC/30d');
+	assert.deepEqual(lib.parseHash('#BTC/30d'), { coin: 'BTC', range: '30d' });
+	assert.deepEqual(lib.parseHash('#ETH'), { coin: 'ETH', range: null });
+	assert.deepEqual(lib.parseHash('#BTC/century'), {
+		coin: 'BTC',
+		range: null,
+	});
+	assert.deepEqual(lib.parseHash(''), { coin: null, range: null });
+	assert.deepEqual(lib.parseHash('#%E0%A4%A/7d'), {
+		coin: null,
+		range: '7d',
+	});
+	assert.deepEqual(lib.parseHash('#/all'), { coin: null, range: 'all' });
+	assert.deepEqual(lib.parseHash('#constructor/toString'), {
+		coin: 'constructor',
+		range: null,
+	});
+});
+
+test('nextSort starts a column in its natural order, flips it, then goes back to the coin list order', () => {
+	const start = { key: 'order', dir: 'asc' };
+	const first = lib.nextSort(start, '24h');
+	assert.deepEqual(first, { key: '24h', dir: 'desc' });
+	const second = lib.nextSort(first, '24h');
+	assert.deepEqual(second, { key: '24h', dir: 'asc' });
+	assert.deepEqual(lib.nextSort(second, '24h'), start);
+	assert.deepEqual(lib.nextSort(first, 'coin'), { key: 'coin', dir: 'asc' });
+	const byCoin = lib.nextSort(start, 'coin');
+	assert.deepEqual(lib.nextSort(byCoin, 'coin'), {
+		key: 'coin',
+		dir: 'desc',
+	});
+	assert.deepEqual(lib.nextSort(lib.nextSort(byCoin, 'coin'), 'coin'), start);
+});
+
+test('sortOverview orders by a column, keeps the input and puts missing values last', () => {
+	const rows = [
+		{ id: 'B', price: 2, '24h': -1, '7d': null },
+		{ id: 'A', price: 3, '24h': 4, '7d': 1 },
+		{ id: 'C', price: 1, '24h': null, '7d': 5 },
+	];
+	const ids = (sort: { key: string; dir: string }) =>
+		lib.sortOverview(rows, sort).map((row: { id: string }) => row.id);
+	assert.deepEqual(ids({ key: '24h', dir: 'desc' }), ['A', 'B', 'C']);
+	assert.deepEqual(ids({ key: '24h', dir: 'asc' }), ['B', 'A', 'C']);
+	assert.deepEqual(ids({ key: '7d', dir: 'desc' }), ['C', 'A', 'B']);
+	assert.deepEqual(ids({ key: 'coin', dir: 'desc' }), ['C', 'B', 'A']);
+	assert.deepEqual(ids({ key: 'order', dir: 'asc' }), ['B', 'A', 'C']);
+	assert.deepEqual(
+		rows.map((row) => row.id),
+		['B', 'A', 'C']
+	);
+});
+
+test('sparkPoints scales one series to its own range and keeps the last point', () => {
+	const t = [0, 10, 20, 30, 40];
+	const points = lib.sparkPoints(t, [5, 1, 3, 9, 5]);
+	assert.deepEqual(points.x, [0, 0.25, 0.5, 0.75, 1]);
+	assert.deepEqual(points.y, [0.5, 0, 0.25, 1, 0.5]);
+	assert.equal(lib.sparkPoints([1], [1]), null);
+	assert.equal(lib.sparkPoints([1, 2], [1]), null);
+	assert.deepEqual(lib.sparkPoints([0, 1], [7, 7]).y, [0.5, 0.5]);
+	const long = Array.from({ length: 1000 }, (_, i) => i);
+	const thin = lib.sparkPoints(long, long, 50);
+	assert.ok(thin.x.length <= 51);
+	assert.equal(thin.x[thin.x.length - 1], 1);
+	assert.equal(thin.y[thin.y.length - 1], 1);
+});
