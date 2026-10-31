@@ -13,6 +13,7 @@ import {
 	toSamples,
 	joinHistory,
 	mergeHistory,
+	dropSpikes,
 } from '../../src/site/derive.ts';
 import type { Sample } from '../../src/site/derive.ts';
 import type { PricePoint, SeriesReader } from '../../src/types.ts';
@@ -437,4 +438,25 @@ test('loadSamples marks OKX rows as USDT prices', async () => {
 		'kr-ohlc'
 	);
 	assert.equal(kr[0]?.usdt, undefined);
+});
+
+test('dropSpikes leaves out an isolated spike and keeps a lasting move and a gap', () => {
+	const series = [
+		sample('2026-10-01T00:00:00Z', 7.8),
+		// the Bitstamp print of 9.418 between 7.79 and 7.8
+		sample('2026-10-01T00:15:00Z', 9.418),
+		sample('2026-10-01T00:30:00Z', 7.79),
+		sample('2026-10-01T00:40:00Z', 7.8),
+		// a lasting move: the price stays up
+		sample('2026-10-01T00:45:00Z', 9),
+		sample('2026-10-01T01:00:00Z', 9.1),
+		// a jump after a long gap is not judged
+		sample('2026-10-01T05:00:00Z', 12),
+		sample('2026-10-01T05:15:00Z', 9.1),
+	];
+	assert.deepEqual(
+		dropSpikes(series).map((item) => item.p),
+		[7.8, 7.79, 7.8, 9, 9.1, 12, 9.1]
+	);
+	assert.deepEqual(dropSpikes([]), []);
 });

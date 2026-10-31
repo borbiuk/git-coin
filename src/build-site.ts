@@ -20,6 +20,7 @@ import {
 	sourcePoints,
 	joinHistory,
 	mergeHistory,
+	dropSpikes,
 } from './site/derive.ts';
 import type { Sample, Span } from './site/derive.ts';
 import { findFirstDay } from './site/first-day.ts';
@@ -118,8 +119,8 @@ export async function buildSite(opts: {
 			}
 			bySrc.set(code, samples);
 		}
-		const history = mergeHistory(
-			HISTORY_SRCS.map((code) => bySrc.get(code) ?? [])
+		const history = dropSpikes(
+			mergeHistory(HISTORY_SRCS.map((code) => bySrc.get(code) ?? []))
 		);
 		const joined = joinHistory(history, live);
 		const until = live[0]?.ts ?? history[history.length - 1]?.ts;

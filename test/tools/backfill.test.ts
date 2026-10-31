@@ -10,6 +10,7 @@ import type { HttpClient, HttpRequest, HttpResult } from '../../src/types.ts';
 import { createPace } from '../../tools/backfill-providers.ts';
 import {
 	compareCloses,
+	isSpike,
 	main,
 	providerFor,
 	runAll,
@@ -143,20 +144,22 @@ test('runTask writes the close and the end time of each candle, and leaves out e
 	assert.ok(!file.includes('3.6,'));
 });
 
-test('a close that differs from another source at the same time, or jumps, is left out', async () => {
+test('an isolated spike is left out, a lasting move and a close that differs from another source are kept', async () => {
 	await writeRows('KSM', [
-		`${iso(START + 900)},3.50,bs-ohlc,`,
+		`${iso(START + 900)},3.00,bs-ohlc,`,
 		`${iso(START + 3600)},3.50,bs-ohlc,`,
 	]);
 	const http = fakeHttp(() =>
 		coinbase([
-			// 5% from Bitstamp at the same time: left out by the cross-check
-			[START, 3.7],
-			// a normal close
+			// 15% from the Bitstamp close of the same time, but not a spike: kept
+			[START, 3.45],
 			[START + 900, 3.5],
-			// 60% from the close before: left out by the step check
+			// a spike between 3.5 and 3.55
 			[START + 1800, 5.6],
 			[START + 2700, 3.55],
+			// a lasting move: the price stays up
+			[START + 3600, 4.4],
+			[START + 4500, 4.45],
 		])
 	);
 	const opts = await options(http);
@@ -165,14 +168,26 @@ test('a close that differs from another source at the same time, or jumps, is le
 		opts,
 		noPace
 	);
-	assert.equal(result.written, 2);
-	assert.equal(result.flagged, 2);
+	assert.equal(result.written, 5);
+	assert.equal(result.flagged, 1);
 	assert.ok(
-		opts.lines.some((line) => line.includes('differs from another source'))
+		opts.lines.some((line) =>
+			line.includes('is a spike between 3.5 and 3.55')
+		)
 	);
-	assert.ok(
-		opts.lines.some((line) => line.includes('is a step of more than 50%'))
+	const file = await readFile(
+		join(root, 'data', 'raw', '2026', '10', '01', 'KSM.csv'),
+		'utf8'
 	);
+	assert.ok(!file.includes('5.6,cb-ohlc'));
+	assert.match(file, /,4\.4,cb-ohlc,/);
+});
+
+test('isSpike needs both neighbours far away and close to each other', () => {
+	assert.equal(isSpike(7.8, 9.4, 7.79), true);
+	assert.equal(isSpike(7.8, 9.4, 9.3), false);
+	assert.equal(isSpike(7.8, 8, 7.79), false);
+	assert.equal(isSpike(7.8, 9.4, 8.5), false);
 });
 
 test('a second run continues after the last stored row and writes nothing twice', async () => {

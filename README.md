@@ -69,7 +69,7 @@ node tools/backfill.ts --data-root ../git-coin-data --verify               # run
 ```
 
 - `tools/backfill.ts` picks the coins whose share is below `--min-coverage` (0.8) and fills them from Coinbase, else Kraken trades, else OKX. The providers run side by side. `--coins ATOM,KSM` and `--provider kraken-trades` choose by hand, `--from` and `--until` set the range.
-- A close is left out when it is more than 2% away from another source at the same time, or more than 50% away from the close before it. `--verify` prints the spread between the sources.
+- A close is left out when it is an isolated spike: more than 10% away from the closes before and after it, which are within 5% of each other, all within an hour. A lasting move is kept. Closes are not compared with other sources while writing, because thin Bitstamp markets have bad closes. `--verify` prints the spread between the sources.
 - Bitstamp candles: `tools/backfill-bitstamp.ts --only <ids>`. Daily Kraken closes for a coin with no Bitstamp market: `tools/backfill-kraken.ts`.
 - Then commit in the checkout with the repository identity and push `data`. If the backfill uses a `src` code that `main` does not know yet, push `main` first.
 

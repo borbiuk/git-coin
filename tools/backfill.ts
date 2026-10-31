@@ -7,8 +7,9 @@
 // tools/backfill-bitstamp.ts. Daily Kraken closes: tools/backfill-kraken.ts.
 // The providers run side by side, each at its own pace. Coins of one provider run in turn or in a few lanes.
 //
-// Guards: a close is not written when it is more than `crosscheck_max_diff_percent` away from the close of
-// another source at the same time, or more than `max_step_move_percent` away from the close before it.
+// Guard: a close is not written when it is a spike (more than 10% away from the closes before and after it,
+// which are within 5% of each other, all within an hour). A lasting move is real and is kept. A close is NOT compared with the other sources: thin Bitstamp markets have bad closes, and
+// the site resolves two sources by priority (ADR 0004 D1). `--verify` shows how far the sources are apart.
 // Run: node tools/backfill.ts --data-root <checkout of the data branch> [--dry-run]
 
 import { setTimeout as sleepMs } from 'node:timers/promises';
@@ -19,13 +20,7 @@ import { appendRows, readLastRow } from '../src/csv.ts';
 import { createHttpClient } from '../src/http.ts';
 import { createSeriesReader } from '../src/series.ts';
 import { isoSeconds, parseIso } from '../src/time.ts';
-import type {
-	CoinConfig,
-	Config,
-	HttpClient,
-	PriceRow,
-	SrcCode,
-} from '../src/types.ts';
+import type { CoinConfig, Config, HttpClient, SrcCode } from '../src/types.ts';
 
 import { coverageOf } from './audit-coverage.ts';
 import {
@@ -69,9 +64,13 @@ export const PROVIDERS: Record<ProviderName, ProviderInfo> = {
 /** The order in which a provider is picked for a coin that has the market on several of them. */
 const PRIORITY: ProviderName[] = ['coinbase', 'kraken-trades', 'okx'];
 
+/** A close this far from both neighbours is a spike (percent). */
+const SPIKE_PERCENT = 10;
+/** The neighbours of a spike must be this close in time (seconds). */
+const SPIKE_NEIGHBOUR_SECONDS = 3600;
 const DEFAULT_FROM = '2024-01-01T00:00:00Z';
 const DEFAULT_MIN_COVERAGE = 0.8;
-/** Sources whose closes are compared with a new close of the same time. OKX is in USDT, so it is left out. */
+/** Sources whose closes `--verify` compares. OKX is in USDT, so it is left out. */
 const COMPARE_SRCS: SrcCode[] = ['cb-ohlc', 'kt-ohlc', 'bs-ohlc', 'kr-ohlc'];
 
 export interface Task {
@@ -106,29 +105,17 @@ export function providerFor(coin: CoinConfig): ProviderName | null {
 	);
 }
 
-function percentDiff(a: number, b: number): number {
-	return Math.abs(a / b - 1) * 100;
+/** An isolated spike: far from both neighbours, which are close to each other. */
+export function isSpike(before: number, price: number, after: number): boolean {
+	return (
+		percentDiff(price, before) > SPIKE_PERCENT &&
+		percentDiff(price, after) > SPIKE_PERCENT &&
+		percentDiff(before, after) < SPIKE_PERCENT / 2
+	);
 }
 
-/** The closes of the other sources of one coin by candle end time, for the cross-check. */
-async function otherCloses(
-	opts: RunOptions,
-	coin: string,
-	own: SrcCode
-): Promise<Map<number, number>> {
-	const reader = createSeriesReader(opts.dataRoot, () => {});
-	const from = isoSeconds(new Date(opts.fromSec * 1000));
-	const to = isoSeconds(new Date(opts.untilSec * 1000));
-	const map = new Map<number, number>();
-	for (const src of COMPARE_SRCS) {
-		if (src === own) {
-			continue;
-		}
-		for (const point of await reader.readSeries(coin, from, to, src)) {
-			map.set(parseIso(point.ts) / 1000, Number(point.price));
-		}
-	}
-	return map;
+function percentDiff(a: number, b: number): number {
+	return Math.abs(a / b - 1) * 100;
 }
 
 /** Backfills one coin from one provider. */
@@ -152,7 +139,6 @@ export async function runTask(
 		opts.log(`${task.coin} (${task.provider}): nothing to do`);
 		return result;
 	}
-	const others = await otherCloses(opts, task.coin, info.src);
 	const ctx: FetchContext = {
 		http: opts.http,
 		pace,
@@ -161,58 +147,79 @@ export async function runTask(
 	};
 	let written = lastSec;
 	let previous: number | null = last === null ? null : Number(last.price);
-	const reasons = { cross: 0, step: 0 };
+	let spikes = 0;
+	// A close is decided when the next one is known, so an isolated spike can be seen
+	let queue: CandleClose[] = [];
 
-	async function emit(candles: CandleClose[]): Promise<void> {
-		const rows: PriceRow[] = [];
-		for (const candle of candles) {
-			if (
-				candle.endSec <= written ||
-				candle.endSec > opts.untilSec ||
-				Number(candle.volume) === 0
-			) {
-				continue;
-			}
-			const price = Number(candle.close);
-			const other = others.get(candle.endSec);
-			if (
-				other !== undefined &&
-				info.src !== 'ok-ohlc' &&
-				percentDiff(price, other) > settings.crosscheck_max_diff_percent
-			) {
-				reasons.cross += 1;
-				opts.log(
-					`${task.coin}: ${isoSeconds(new Date(candle.endSec * 1000))} ${candle.close} differs from another source (${other}), left out`
-				);
-				written = candle.endSec;
-				continue;
-			}
-			if (
-				previous !== null &&
-				percentDiff(price, previous) > settings.max_step_move_percent
-			) {
-				reasons.step += 1;
-				opts.log(
-					`${task.coin}: ${isoSeconds(new Date(candle.endSec * 1000))} ${candle.close} is a step of more than ${settings.max_step_move_percent}% from ${previous}, left out`
-				);
-				written = candle.endSec;
-				continue;
-			}
-			previous = price;
-			written = candle.endSec;
-			rows.push({
+	async function write(candles: CandleClose[]): Promise<void> {
+		const appended = await appendRows(
+			opts.dataRoot,
+			candles.map((candle) => ({
 				ts: isoSeconds(new Date(candle.endSec * 1000)),
 				coin: task.coin,
 				price: candle.close,
 				src: info.src,
 				age_s: null,
-			});
-		}
-		const appended = await appendRows(opts.dataRoot, rows, {
-			minSpacingSeconds: settings.min_spacing_seconds,
-		});
+			})),
+			{ minSpacingSeconds: settings.min_spacing_seconds }
+		);
 		result.written += appended.written.length;
 		result.skipped += appended.skipped.length;
+	}
+
+	/** Decides the first close of the queue. `next` is the close after it, when there is one. */
+	function accept(
+		candle: CandleClose,
+		next: CandleClose | undefined
+	): boolean {
+		const price = Number(candle.close);
+		const at = isoSeconds(new Date(candle.endSec * 1000));
+		if (
+			previous !== null &&
+			next !== undefined &&
+			candle.endSec - written <= SPIKE_NEIGHBOUR_SECONDS &&
+			next.endSec - candle.endSec <= SPIKE_NEIGHBOUR_SECONDS &&
+			isSpike(previous, price, Number(next.close))
+		) {
+			spikes += 1;
+			opts.log(
+				`${task.coin}: ${at} ${candle.close} is a spike between ${previous} and ${next.close}, left out`
+			);
+			return false;
+		}
+		return true;
+	}
+
+	async function drain(final: boolean): Promise<void> {
+		const rows: CandleClose[] = [];
+		while (queue.length > (final ? 0 : 1)) {
+			const candle = queue[0];
+			const next = queue[1];
+			queue = queue.slice(1);
+			if (candle === undefined) {
+				break;
+			}
+			if (accept(candle, next)) {
+				previous = Number(candle.close);
+				rows.push(candle);
+			}
+			written = candle.endSec;
+		}
+		await write(rows);
+	}
+
+	async function emit(candles: CandleClose[]): Promise<void> {
+		for (const candle of candles) {
+			const newest = queue[queue.length - 1]?.endSec ?? written;
+			if (
+				candle.endSec > newest &&
+				candle.endSec <= opts.untilSec &&
+				Number(candle.volume) > 0
+			) {
+				queue.push(candle);
+			}
+		}
+		await drain(false);
 	}
 
 	if (task.provider === 'coinbase') {
@@ -236,9 +243,10 @@ export async function runTask(
 		result.requests = found.requests;
 		await emit(found.candles);
 	}
-	result.flagged = reasons.cross + reasons.step;
+	await drain(true);
+	result.flagged = spikes;
 	opts.log(
-		`${task.coin} (${task.provider}, ${task.market}): ${result.requests} requests, ${result.written} rows written, ${result.skipped} skipped by the spacing or clock rule, ${reasons.cross} left out by the cross-check, ${reasons.step} left out by the step check`
+		`${task.coin} (${task.provider}, ${task.market}): ${result.requests} requests, ${result.written} rows written, ${result.skipped} skipped by the spacing or clock rule, ${spikes} left out as spikes`
 	);
 	return result;
 }

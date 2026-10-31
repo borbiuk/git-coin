@@ -78,6 +78,37 @@ export function mergeHistory(lists: Sample[][]): Sample[] {
 	return accepted;
 }
 
+/** A history price this far (percent) from both neighbours is a spike. */
+export const SPIKE_PERCENT = 10;
+/** A spike is judged only when both neighbours are at most this close in time (seconds). */
+export const SPIKE_NEIGHBOUR_SECONDS = 3600;
+
+/**
+ * Leaves out the isolated spikes of a history series: a price more than `SPIKE_PERCENT` away from the prices
+ * before and after it, which are within half of that of each other, all within an hour. Thin markets print
+ * such closes now and then (a stale order, a single small trade). A lasting move is kept. Time order.
+ */
+export function dropSpikes(samples: Sample[]): Sample[] {
+	const far = (a: number, b: number) => Math.abs(a / b - 1) * 100;
+	return samples.filter((sample, i) => {
+		const before = samples[i - 1];
+		const after = samples[i + 1];
+		if (
+			before === undefined ||
+			after === undefined ||
+			sample.t - before.t > SPIKE_NEIGHBOUR_SECONDS ||
+			after.t - sample.t > SPIKE_NEIGHBOUR_SECONDS
+		) {
+			return true;
+		}
+		return !(
+			far(sample.p, before.p) > SPIKE_PERCENT &&
+			far(sample.p, after.p) > SPIKE_PERCENT &&
+			far(before.p, after.p) < SPIKE_PERCENT / 2
+		);
+	});
+}
+
 /** A time span in epoch seconds, from the last live sample before a gap to the first one after it. */
 export type Span = [number, number];
 
