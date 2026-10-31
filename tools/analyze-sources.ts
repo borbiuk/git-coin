@@ -278,7 +278,12 @@ export async function loadData(dataRoot: string): Promise<AnalysisData> {
 	const rawDir = join(dataRoot, 'data', 'raw');
 	for (const relative of await listFiles(rawDir)) {
 		const file = dayFileParts(relative)?.[3];
-		if (file === undefined || !file.endsWith('.csv')) {
+		// `<ID>.market.csv` holds bid, ask and volume, not prices
+		if (
+			file === undefined ||
+			!file.endsWith('.csv') ||
+			file.endsWith('.market.csv')
+		) {
 			continue;
 		}
 		const text = await readFile(join(rawDir, relative), 'utf8');

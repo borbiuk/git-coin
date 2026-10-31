@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { before, describe, test } from 'node:test';
@@ -105,6 +105,27 @@ describe('loadData', () => {
 		const data = await loadData(FIXTURE_ROOT);
 		// "not a row", a row with the price "abc", and a request log row with three fields
 		assert.equal(data.skipped_lines, 3);
+	});
+
+	test('leaves the market files out, so their lines are not counted as malformed prices', async () => {
+		const dir = await mkdtemp(join(tmpdir(), 'analyze-market-'));
+		try {
+			const day = join(dir, 'data', 'raw', '2026', '11', '01');
+			await mkdir(day, { recursive: true });
+			await writeFile(
+				join(day, 'BTC.csv'),
+				'ts,price,src,age_s\n2026-11-01T00:00:00Z,100.00,kr,\n'
+			);
+			await writeFile(
+				join(day, 'BTC.market.csv'),
+				'ts,src,bid,ask,volume,market_cap,volume_usd,supply,tx_count,active_addresses,hash_rate,as_of\n2026-11-01T00:00:00Z,kr,99.9,100.1,20,,,,,,,\n'
+			);
+			const data = await loadData(dir);
+			assert.equal(data.rows.length, 1);
+			assert.equal(data.skipped_lines, 0);
+		} finally {
+			await rm(dir, { recursive: true });
+		}
 	});
 
 	test('returns nothing for a root without data files', async () => {

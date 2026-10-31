@@ -3,6 +3,7 @@ import type {
 	CoinConfig,
 	ErrorCode,
 	HttpClient,
+	MarketRow,
 	PriceRow,
 	SourceAdapter,
 	SourceRun,
@@ -15,6 +16,7 @@ const MAX_IN_FLIGHT = 4;
 
 interface CoinOutcome {
 	row?: PriceRow;
+	market?: MarketRow;
 	status: number;
 	error?: ErrorCode;
 }
@@ -29,6 +31,34 @@ function ageSeconds(time: unknown, at: Date): number | null {
 		return null;
 	}
 	return Math.max(0, Math.round((at.getTime() - sourceMs) / 1000));
+}
+
+function text(value: unknown): string | undefined {
+	return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/** Bid, ask and the 24 hour volume of one ticker. Null when it has none of them. */
+function readMarket(
+	ts: string,
+	coin: string,
+	body: { bid?: unknown; ask?: unknown; volume?: unknown }
+): MarketRow | null {
+	const row: MarketRow = { ts, coin, src: SRC_CODE.coinbase };
+	const bid = text(body.bid);
+	const ask = text(body.ask);
+	const volume = text(body.volume);
+	if (bid !== undefined) {
+		row.bid = bid;
+	}
+	if (ask !== undefined) {
+		row.ask = ask;
+	}
+	if (volume !== undefined) {
+		row.volume = volume;
+	}
+	return bid === undefined && ask === undefined && volume === undefined
+		? null
+		: row;
 }
 
 async function fetchCoin(
@@ -59,15 +89,18 @@ async function fetchCoin(
 	if (typeof price !== 'string' || price === '') {
 		return { status: result.status, error: 'parse' };
 	}
+	const ts = isoSeconds(fetchedAt);
+	const market = readMarket(ts, coin.id, body);
 	return {
 		status: result.status,
 		row: {
-			ts: isoSeconds(fetchedAt),
+			ts,
 			coin: coin.id,
 			price,
 			src: SRC_CODE.coinbase,
 			age_s: ageSeconds(time, fetchedAt),
 		},
+		...(market === null ? {} : { market }),
 	};
 }
 
@@ -93,12 +126,16 @@ export const coinbaseAdapter: SourceAdapter = {
 
 		// Outcomes are in coin order, so "first" is stable and does not depend on timing.
 		const rows: PriceRow[] = [];
+		const market: MarketRow[] = [];
 		let httpStatus = coins.length === 0 ? 0 : 200;
 		let statusSet = false;
 		let error: ErrorCode | '' = '';
 		for (const outcome of outcomes) {
 			if (outcome.row !== undefined) {
 				rows.push(outcome.row);
+			}
+			if (outcome.market !== undefined) {
+				market.push(outcome.market);
 			}
 			if (outcome.error === undefined) {
 				continue;
@@ -122,6 +159,7 @@ export const coinbaseAdapter: SourceAdapter = {
 				coins_ok: rows.length,
 				error,
 			},
+			...(market.length > 0 ? { market } : {}),
 		};
 	},
 };

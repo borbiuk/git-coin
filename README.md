@@ -46,7 +46,7 @@ After the test one source is kept for new rows. The rows of the other sources st
 
 ## Data files
 
-On the `data` branch, `data/raw/YYYY/MM/DD/<ID>.csv` has one file per day and coin with the header `ts,price,src,age_s`. `ts` is the real fetch time in UTC. `price` is copied from the source as text. `age_s` is the age of the source's own timestamp, empty when the source gives none. `state/status.json` has the last run and the failure counters. The details are in [ADR 0004](docs/adr/0004-data-model-storage-retention.md).
+On the `data` branch, `data/raw/YYYY/MM/DD/<ID>.csv` has one file per day and coin with the header `ts,price,src,age_s`. `ts` is the real fetch time in UTC. `price` is copied from the source as text. `age_s` is the age of the source's own timestamp, empty when the source gives none. `data/raw/YYYY/MM/DD/<ID>.market.csv` holds bid, ask and the 24 hour volume of every run, and once a day the market capitalisation, volume, supply and network activity from Coin Metrics. `state/status.json` has the last run and the failure counters. The details are in [ADR 0004](docs/adr/0004-data-model-storage-retention.md).
 
 ## Add a coin
 

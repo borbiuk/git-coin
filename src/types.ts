@@ -149,6 +149,31 @@ export interface PricePoint {
 	src: SrcCode;
 	age_s: number | null;
 }
+/**
+ * Fast-changing facts of one coin at one time (ADR 0004 D8). Every value is text, as the source gave it.
+ * A missing field means the source did not give it. An exchange row (`kr`, `cb`, `bs`) has bid, ask and volume.
+ * A Coin Metrics row (`cm`) is a daily row: the other fields and `as_of`.
+ */
+export interface MarketRow {
+	ts: string;
+	coin: string;
+	src: SrcCode;
+	bid?: string;
+	ask?: string;
+	/** Volume of the last 24 hours in coins (the base asset), from the exchange. */
+	volume?: string;
+	/** Estimated market capitalisation in USD (`CapMrktEstUSD`). */
+	market_cap?: string;
+	/** Spot volume of the day in USD, reported by the exchanges (`volume_reported_spot_usd_1d`). */
+	volume_usd?: string;
+	/** Supply in circulation in coins (`SplyCur`). */
+	supply?: string;
+	tx_count?: string;
+	active_addresses?: string;
+	hash_rate?: string;
+	/** The UTC day (`YYYY-MM-DD`) of the newest daily Coin Metrics record of the coin. */
+	as_of?: string;
+}
 export interface RequestLogRow {
 	ts: string;
 	src: SrcCode;
@@ -161,6 +186,8 @@ export interface SourceRun {
 	src: SrcCode;
 	rows: PriceRow[];
 	log: RequestLogRow;
+	/** Bid, ask and 24 hour volume taken from the same answers as `rows`. Optional: an adapter may give none. */
+	market?: MarketRow[];
 }
 export interface SourceAdapter {
 	readonly id: SourceId;

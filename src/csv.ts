@@ -4,9 +4,30 @@ import path from 'node:path';
 
 import { parseIso } from './time.ts';
 import { SRC_CODE } from './types.ts';
-import type { PricePoint, PriceRow, RequestLogRow, SrcCode } from './types.ts';
+import type {
+	MarketRow,
+	PricePoint,
+	PriceRow,
+	RequestLogRow,
+	SrcCode,
+} from './types.ts';
 
 const PRICE_HEADER = 'ts,price,src,age_s';
+const MARKET_FIELDS = [
+	'bid',
+	'ask',
+	'volume',
+	'market_cap',
+	'volume_usd',
+	'supply',
+	'tx_count',
+	'active_addresses',
+	'hash_rate',
+] as const;
+const MARKET_HEADER = `ts,src,${MARKET_FIELDS.join(',')},as_of`;
+// A plain decimal, with an exponent allowed. Never negative.
+const NUMBER_RE = /^\d+(\.\d+)?([eE][+-]?\d+)?$/;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const LOG_HEADER = 'ts,src,http,ms,coins_ok,error';
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const COIN_RE = /^[A-Za-z0-9]{1,20}$/;
@@ -271,6 +292,111 @@ export async function appendRows(
 		await appendLines(file, PRICE_HEADER, lines);
 	}
 	return { written, skipped };
+}
+
+/** `<dataRoot>/data/raw/YYYY/MM/DD/<ID>.market.csv`, next to the price file of the same day. */
+export function marketPath(dataRoot: string, coin: string, ts: string): string {
+	return path.join(
+		dataRoot,
+		'data',
+		'raw',
+		...datePath(ts),
+		coinFileName(coin).replace(/\.csv$/, '.market.csv')
+	);
+}
+
+/**
+ * One line of the market file. A field that is not a plain number is left empty, so a bad value
+ * from a source never breaks the line. Returns null when no number is left.
+ */
+function formatMarketRow(row: MarketRow): string | null {
+	assertIso(row.ts);
+	if (!isSrcCode(row.src)) {
+		throw new Error(`Bad src: ${row.src}`);
+	}
+	const cells = MARKET_FIELDS.map((field) => {
+		const value = row[field];
+		return value !== undefined && NUMBER_RE.test(value) ? value : '';
+	});
+	if (cells.every((cell) => cell === '')) {
+		return null;
+	}
+	const asOf =
+		row.as_of !== undefined && DAY_RE.test(row.as_of) ? row.as_of : '';
+	return [row.ts, row.src, ...cells, asOf].join(',');
+}
+
+/**
+ * Appends rows to the market files. No guard of its own: the caller decides which rows to write.
+ * Returns how many lines were written.
+ */
+export async function appendMarketRows(
+	dataRoot: string,
+	rows: MarketRow[]
+): Promise<number> {
+	const linesByFile = new Map<string, string[]>();
+	let count = 0;
+	for (const row of rows) {
+		const line = formatMarketRow(row);
+		if (line === null) {
+			continue;
+		}
+		const file = marketPath(dataRoot, row.coin, row.ts);
+		const lines = linesByFile.get(file);
+		if (lines === undefined) {
+			linesByFile.set(file, [line]);
+		} else {
+			lines.push(line);
+		}
+		count += 1;
+	}
+	for (const [file, lines] of linesByFile) {
+		await appendLines(file, MARKET_HEADER, lines);
+	}
+	return count;
+}
+
+/** Reads one market file. A missing file is empty. The header, blank and malformed lines are skipped. */
+export async function readMarketRows(file: string): Promise<MarketRow[]> {
+	let text: string;
+	try {
+		text = await readFile(file, 'utf8');
+	} catch (error) {
+		if (isNotFound(error)) {
+			return [];
+		}
+		throw error;
+	}
+	const coin = path.basename(file).replace(/\.market\.csv$/, '');
+	const rows: MarketRow[] = [];
+	for (const raw of text.split('\n')) {
+		const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
+		if (line === '' || line === MARKET_HEADER) {
+			continue;
+		}
+		const parts = line.split(',');
+		const [ts = '', src = ''] = parts;
+		if (
+			parts.length !== MARKET_FIELDS.length + 3 ||
+			!ISO_RE.test(ts) ||
+			!isSrcCode(src)
+		) {
+			continue;
+		}
+		const row: MarketRow = { ts, coin, src };
+		MARKET_FIELDS.forEach((field, index) => {
+			const cell = parts[index + 2] ?? '';
+			if (cell !== '') {
+				row[field] = cell;
+			}
+		});
+		const asOf = parts[parts.length - 1] ?? '';
+		if (asOf !== '') {
+			row.as_of = asOf;
+		}
+		rows.push(row);
+	}
+	return rows;
 }
 
 function formatLogRow(row: RequestLogRow): string {

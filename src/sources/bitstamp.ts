@@ -5,6 +5,7 @@ import type {
 	CoinConfig,
 	ErrorCode,
 	HttpClient,
+	MarketRow,
 	PriceRow,
 	SourceAdapter,
 	SourceRun,
@@ -16,6 +17,9 @@ const TICKER_URL = 'https://www.bitstamp.net/api/v2/ticker/';
 interface TickerEntry {
 	last: unknown;
 	timestamp: unknown;
+	bid: unknown;
+	ask: unknown;
+	volume: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,10 +51,44 @@ function indexTicker(json: unknown): Map<string, TickerEntry> | null {
 		}
 		const key = normalizeMarket(item.pair);
 		if (!index.has(key)) {
-			index.set(key, { last: item.last, timestamp: item.timestamp });
+			index.set(key, {
+				last: item.last,
+				timestamp: item.timestamp,
+				bid: item.bid,
+				ask: item.ask,
+				volume: item.volume,
+			});
 		}
 	}
 	return index;
+}
+
+function text(value: unknown): string | undefined {
+	return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/** Bid, ask and the 24 hour volume of one market. Null when it has none of them. */
+function readMarket(
+	ts: string,
+	coin: string,
+	entry: TickerEntry
+): MarketRow | null {
+	const row: MarketRow = { ts, coin, src: SRC_CODE.bitstamp };
+	const bid = text(entry.bid);
+	const ask = text(entry.ask);
+	const volume = text(entry.volume);
+	if (bid !== undefined) {
+		row.bid = bid;
+	}
+	if (ask !== undefined) {
+		row.ask = ask;
+	}
+	if (volume !== undefined) {
+		row.volume = volume;
+	}
+	return bid === undefined && ask === undefined && volume === undefined
+		? null
+		: row;
 }
 
 export const bitstampAdapter: SourceAdapter = {
@@ -99,6 +137,7 @@ export const bitstampAdapter: SourceAdapter = {
 		}
 
 		const rows: PriceRow[] = [];
+		const extras: MarketRow[] = [];
 		let error: ErrorCode | '' = '';
 		for (const coin of coins) {
 			const market = coin.sources.bitstamp_market;
@@ -121,6 +160,10 @@ export const bitstampAdapter: SourceAdapter = {
 				src,
 				age_s: ageSeconds(entry.timestamp, at.getTime()),
 			});
+			const extra = readMarket(ts, coin.id, entry);
+			if (extra !== null) {
+				extras.push(extra);
+			}
 		}
 
 		return {
@@ -134,6 +177,7 @@ export const bitstampAdapter: SourceAdapter = {
 				coins_ok: rows.length,
 				error,
 			},
+			...(extras.length > 0 ? { market: extras } : {}),
 		};
 	},
 };

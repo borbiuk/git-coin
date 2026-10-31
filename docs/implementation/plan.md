@@ -165,6 +165,7 @@ export interface SourceRun {
 	src: SrcCode;
 	rows: PriceRow[];
 	log: RequestLogRow;
+	market?: MarketRow[]; // bid, ask and 24 hour volume from the same answers (ADR 0004 D8), defined in src/types.ts
 }
 export interface SourceAdapter {
 	readonly id: SourceId;

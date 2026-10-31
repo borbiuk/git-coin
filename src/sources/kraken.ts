@@ -7,6 +7,7 @@ import {
 	type ErrorCode,
 	type HttpClient,
 	type HttpResult,
+	type MarketRow,
 	type PriceRow,
 	type SourceAdapter,
 	type SourceRun,
@@ -137,6 +138,42 @@ function readPrice(entry: unknown): string | null {
 	return typeof last === 'string' && last !== '' ? last : null;
 }
 
+function textAt(field: unknown, index: number): string | undefined {
+	if (!Array.isArray(field)) {
+		return undefined;
+	}
+	const value: unknown = field[index];
+	return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+/** Bid, ask and the 24 hour volume of one `Ticker` entry. Null when it has none of them. */
+function readMarket(
+	ts: string,
+	coin: string,
+	entry: unknown
+): MarketRow | null {
+	if (!isRecord(entry)) {
+		return null;
+	}
+	const row: MarketRow = { ts, coin, src: SRC_CODE.kraken };
+	const bid = textAt(entry.b, 0);
+	const ask = textAt(entry.a, 0);
+	// `v` holds the volume of today and of the last 24 hours
+	const volume = textAt(entry.v, 1);
+	if (bid !== undefined) {
+		row.bid = bid;
+	}
+	if (ask !== undefined) {
+		row.ask = ask;
+	}
+	if (volume !== undefined) {
+		row.volume = volume;
+	}
+	return bid === undefined && ask === undefined && volume === undefined
+		? null
+		: row;
+}
+
 export const krakenAdapter: SourceAdapter = {
 	id: 'kraken',
 	src: SRC_CODE.kraken,
@@ -152,7 +189,8 @@ export const krakenAdapter: SourceAdapter = {
 		const finish = (
 			rows: PriceRow[],
 			error: ErrorCode | '',
-			ts: string = isoSeconds(now())
+			ts: string = isoSeconds(now()),
+			market: MarketRow[] = []
 		): SourceRun => ({
 			src: SRC_CODE.kraken,
 			rows,
@@ -164,6 +202,7 @@ export const krakenAdapter: SourceAdapter = {
 				coins_ok: rows.length,
 				error,
 			},
+			...(market.length > 0 ? { market } : {}),
 		});
 
 		if (wanted.length === 0) {
@@ -184,6 +223,7 @@ export const krakenAdapter: SourceAdapter = {
 		const ts = isoSeconds(now());
 		const index = indexCatalogue(catalogue.result);
 		const rows: PriceRow[] = [];
+		const market: MarketRow[] = [];
 		let error: ErrorCode | '' = '';
 		for (const coin of wanted) {
 			const pair = (coin.sources.kraken_pair ?? '').toUpperCase();
@@ -204,7 +244,11 @@ export const krakenAdapter: SourceAdapter = {
 				src: SRC_CODE.kraken,
 				age_s: null,
 			});
+			const extra = readMarket(ts, coin.id, ticker.result[key]);
+			if (extra !== null) {
+				market.push(extra);
+			}
 		}
-		return finish(rows, error, ts);
+		return finish(rows, error, ts, market);
 	},
 };

@@ -37,6 +37,8 @@ const FIXTURE_CONFIG = new URL('./fixtures/e2e/config.json', import.meta.url);
 const T0 = '2026-10-29T14:03:12Z';
 const CSV_DIR = 'data/raw/2026/10/29';
 const HEADER = 'ts,price,src,age_s';
+const MARKET_HEADER =
+	'ts,src,bid,ask,volume,market_cap,volume_usd,supply,tx_count,active_addresses,hash_rate,as_of';
 
 const roots: string[] = [];
 
@@ -77,6 +79,8 @@ interface Market {
 	prices: Record<SourceId, Record<CoinId, string>>;
 	down: Set<SourceId>;
 	requests: Record<SourceId, number>;
+	/** The daily Coin Metrics requests (the catalogue and the metrics). `down` makes them fail with 403. */
+	daily: { urls: string[]; down: boolean };
 }
 
 function makeMarket(clock: Clock): Market {
@@ -87,6 +91,7 @@ function makeMarket(clock: Clock): Market {
 		coinmetrics: { BTC: '100.30', ETH: '10.03' },
 	};
 	const down = new Set<SourceId>();
+	const daily: Market['daily'] = { urls: [], down: false };
 	const requests: Market['requests'] = {
 		kraken: 0,
 		coinbase: 0,
@@ -100,6 +105,52 @@ function makeMarket(clock: Clock): Market {
 			return { status: 0, ms: 5, error: 'timeout' };
 		}
 		return { status: 200, ms: 7, json };
+	}
+
+	// Market capitalisation and volume exist for both coins, the supply only for BTC
+	function serveDaily(url: URL): HttpResult {
+		daily.urls.push(`${url.pathname}${url.search}`);
+		if (daily.down) {
+			return { status: 403, ms: 5, error: 'http_other' };
+		}
+		if (url.pathname.endsWith('/catalog/asset-metrics')) {
+			const assets: Record<string, string[]> = {
+				CapMrktEstUSD: ['btc', 'eth'],
+				volume_reported_spot_usd_1d: ['btc', 'eth'],
+				SplyCur: ['btc'],
+			};
+			return {
+				status: 200,
+				ms: 5,
+				json: {
+					data: Object.entries(assets).map(([metric, list]) => ({
+						metric,
+						frequencies: [{ frequency: '1d', assets: list }],
+					})),
+				},
+			};
+		}
+		const metrics = (url.searchParams.get('metrics') ?? '').split(',');
+		const values: Record<string, string> = {
+			CapMrktEstUSD: '5000.5',
+			volume_reported_spot_usd_1d: '700.25',
+			SplyCur: '21000',
+		};
+		return {
+			status: 200,
+			ms: 5,
+			json: {
+				data: (url.searchParams.get('assets') ?? '')
+					.split(',')
+					.map((asset) => ({
+						asset,
+						time: '2026-10-28T00:00:00.000000000Z',
+						...Object.fromEntries(
+							metrics.map((metric) => [metric, values[metric]])
+						),
+					})),
+			},
+		};
 	}
 
 	function serve(url: URL): HttpResult {
@@ -122,6 +173,9 @@ function makeMarket(clock: Clock): Market {
 				for (const id of COIN_IDS) {
 					result[COIN_KEYS[id].krakenKey] = {
 						c: [prices.kraken[id], '1'],
+						b: ['99.99', '1', '1.000'],
+						a: ['100.01', '1', '1.000'],
+						v: ['10', '20'],
 					};
 				}
 				return respond('kraken', { error: [], result });
@@ -137,6 +191,9 @@ function makeMarket(clock: Clock): Market {
 				return respond('coinbase', {
 					price: prices.coinbase[id],
 					time: new Date(nowMs - 2000).toISOString(),
+					bid: '99.98',
+					ask: '100.02',
+					volume: '30',
 				});
 			}
 			case 'www.bitstamp.net':
@@ -146,9 +203,18 @@ function makeMarket(clock: Clock): Market {
 						pair: `${id}/USD`,
 						last: prices.bitstamp[id],
 						timestamp: String(Math.floor(nowMs / 1000) - 3),
+						bid: '99.97',
+						ask: '100.03',
+						volume: '40',
 					}))
 				);
 			case 'community-api.coinmetrics.io':
+				if (
+					url.pathname.endsWith('/catalog/asset-metrics') ||
+					url.searchParams.get('frequency') === '1d'
+				) {
+					return serveDaily(url);
+				}
 				return respond('coinmetrics', {
 					data: COIN_IDS.map((id) => ({
 						asset: id.toLowerCase(),
@@ -165,6 +231,7 @@ function makeMarket(clock: Clock): Market {
 		prices,
 		down,
 		requests,
+		daily,
 		http: {
 			getJson(req) {
 				return Promise.resolve(serve(new URL(req.url)));
@@ -1124,4 +1191,114 @@ test('the keepalive step also runs after a failed data run', async () => {
 		git(main.remote, 'log', '-1', 'main', '--format=%s').trim(),
 		'Keep schedule active'
 	);
+});
+
+test('bid, ask and volume go to the market file next to the price file', async () => {
+	const h = await makeHarness();
+	const result = await runAt(h, T0);
+
+	assert.equal(result.rowsWritten, 8);
+	assert.deepEqual(remoteLines(h, `${CSV_DIR}/BTC.market.csv`), [
+		MARKET_HEADER,
+		`${T0},kr,99.99,100.01,20,,,,,,,`,
+		`${T0},cb,99.98,100.02,30,,,,,,,`,
+		`${T0},bs,99.97,100.03,40,,,,,,,`,
+	]);
+	assert.equal(remoteLines(h, `${CSV_DIR}/ETH.market.csv`).length, 4);
+	// The price files and the commit title stay as they were, and the daily metrics are off by default
+	assert.equal(remoteLines(h, `${CSV_DIR}/BTC.csv`).length, 5);
+	assert.deepEqual(subjects(h), ['data: 2026-10-29T14:03Z 8 rows', 'Seed']);
+	assert.deepEqual(h.market.daily.urls, []);
+	assert.throws(() => show(h, 'state/market.json'));
+});
+
+test('a price row that is skipped skips its market row too', async () => {
+	const h = await makeHarness();
+	await runAt(h, T0);
+	// The same time again: the spacing guard skips every price row
+	const second = await runAt(h, T0);
+
+	assert.equal(second.rowsWritten, 0);
+	assert.equal(remoteLines(h, `${CSV_DIR}/BTC.market.csv`).length, 4);
+});
+
+test('the daily metrics are stored once, then again only after 24 hours', async () => {
+	const h = await makeHarness();
+	await runAt(h, T0, { dailyMetrics: true });
+
+	const cmLines = (id: string): string[] =>
+		remoteLines(h, `${CSV_DIR}/${id}.market.csv`).filter((line) =>
+			line.includes(',cm,')
+		);
+	assert.deepEqual(cmLines('BTC'), [
+		`${T0},cm,,,,5000.5,700.25,21000,,,,2026-10-28`,
+	]);
+	// The supply exists only for BTC
+	assert.deepEqual(cmLines('ETH'), [
+		`${T0},cm,,,,5000.5,700.25,,,,,2026-10-28`,
+	]);
+	assert.equal(
+		(
+			JSON.parse(show(h, 'state/market.json')) as {
+				daily_updated_at: string;
+			}
+		).daily_updated_at,
+		T0
+	);
+	// The catalogue and two requests, one for the metrics both coins have and one for the supply
+	assert.equal(h.market.daily.urls.length, 3);
+
+	await runAt(h, plusMinutes(T0, 15), { dailyMetrics: true });
+	assert.equal(h.market.daily.urls.length, 3);
+	assert.equal(cmLines('BTC').length, 1);
+
+	const next = plusMinutes(T0, 24 * 60);
+	await runAt(h, next, { dailyMetrics: true });
+	assert.equal(h.market.daily.urls.length, 6);
+	// The second set is a day later, so it lands in the next daily file
+	assert.deepEqual(
+		remoteLines(h, 'data/raw/2026/10/30/BTC.market.csv').filter((line) =>
+			line.includes(',cm,')
+		),
+		[`${next},cm,,,,5000.5,700.25,21000,,,,2026-10-28`]
+	);
+	assert.equal(cmLines('BTC').length, 1);
+	assert.equal(
+		(
+			JSON.parse(show(h, 'state/market.json')) as {
+				daily_updated_at: string;
+			}
+		).daily_updated_at,
+		next
+	);
+});
+
+test('a failed daily request keeps the prices, stores no state and is asked again by the next run', async () => {
+	const h = await makeHarness();
+	h.market.daily.down = true;
+	const result = await runAt(h, T0, { dailyMetrics: true });
+
+	assert.equal(result.exitCode, 0);
+	assert.equal(result.rowsWritten, 8);
+	assert.ok(
+		h.logs.some((line) => line.startsWith('daily metrics: catalogue: ')),
+		h.logs.join('\n')
+	);
+	assert.ok(h.logs.some((line) => line.includes('nothing to store')));
+	assert.equal(remoteLines(h, `${CSV_DIR}/BTC.market.csv`).length, 4);
+	assert.throws(() => show(h, 'state/market.json'));
+
+	h.market.daily.down = false;
+	await runAt(h, plusMinutes(T0, 15), { dailyMetrics: true });
+	assert.ok(
+		remoteLines(h, `${CSV_DIR}/BTC.market.csv`).some((line) =>
+			line.includes(',cm,')
+		)
+	);
+});
+
+test('a dry run makes no daily request', async () => {
+	const h = await makeHarness();
+	await runAt(h, T0, { dailyMetrics: true, dryRun: true });
+	assert.deepEqual(h.market.daily.urls, []);
 });

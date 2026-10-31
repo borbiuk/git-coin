@@ -10,15 +10,15 @@ This file orients human and AI contributors to **git-coin**. Prefer **small, foc
 
 ## Architecture
 
-| Area      | Path                          | Role                                                                                         |
-| --------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| Collector | `src/collect.ts`              | Fetches the sources in parallel, validates, appends rows, writes status, commits to `data`.  |
-| Sources   | `src/sources/*.ts`            | One adapter per source (`SourceAdapter` in `src/types.ts`).                                  |
-| Storage   | `src/csv.ts`, `src/series.ts` | Daily CSV files `data/raw/YYYY/MM/DD/<ID>.csv`, request log, series reader.                  |
-| Alerts    | `src/alerts/`                 | Rolling 1 h and 24 h moves, Issue dedup and cooldown (ADR 0006).                             |
-| Site      | `src/build-site.ts`, `site/`  | Derived JSON from the data branch, and the static dashboard (plain HTML and JS, no bundler). |
-| Config    | `config/coins.json`           | Coins, sources, thresholds. Validated by `config/coins.schema.json` and by `src/config.ts`.  |
-| Workflows | `.github/workflows/`          | `collect.yml` (schedule, publish) and CI.                                                    |
+| Area      | Path                                                 | Role                                                                                                                                             |
+| --------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Collector | `src/collect.ts`                                     | Fetches the sources in parallel, validates, appends rows, writes status, commits to `data`.                                                      |
+| Sources   | `src/sources/*.ts`                                   | One adapter per source (`SourceAdapter` in `src/types.ts`).                                                                                      |
+| Storage   | `src/csv.ts`, `src/series.ts`, `src/market-state.ts` | Daily CSV files `data/raw/YYYY/MM/DD/<ID>.csv` and `<ID>.market.csv` (bid, ask, volume, daily Coin Metrics metrics), request log, series reader. |
+| Alerts    | `src/alerts/`                                        | Rolling 1 h and 24 h moves, Issue dedup and cooldown (ADR 0006).                                                                                 |
+| Site      | `src/build-site.ts`, `site/`                         | Derived JSON from the data branch, and the static dashboard (plain HTML and JS, no bundler).                                                     |
+| Config    | `config/coins.json`                                  | Coins, sources, thresholds. Validated by `config/coins.schema.json` and by `src/config.ts`.                                                      |
+| Workflows | `.github/workflows/`                                 | `collect.yml` (schedule, publish) and CI.                                                                                                        |
 
 The shared types are in `src/types.ts` (the contract of [docs/implementation/plan.md](docs/implementation/plan.md), section 3). Modules import only `src/types.ts` and `src/time.ts` from each other, and only `src/collect.ts` wires them together.
 

@@ -188,6 +188,20 @@ On a rejected value: write nothing for that coin, count it in `status.json` (`re
 - A request log is needed because a failed request leaves no price row, and availability cannot be measured from gaps alone. Path: `data/meta/YYYY/MM/DD/requests.csv`, header `ts,src,http,ms,coins_ok,error`. One row per source per run, failures included. `error` is a short code (`timeout`, `http_429`, `http_other`, `parse`, `unmapped`). No response bodies.
 - Size estimate: about 4 times one source, so about 290 KB per day and about 4 MB for 14 days (local estimate from the measured 73 KB per day, not a GitHub measurement).
 
+### D8. Market files: bid, ask, volume and daily metrics (2026-10-31)
+
+Facts that change all the time, but are not the price, go to a second file per coin and day: `data/raw/YYYY/MM/DD/<ID>.market.csv`. The price files and the readers of D1 do not change.
+
+- Header: `ts,src,bid,ask,volume,market_cap,volume_usd,supply,tx_count,active_addresses,hash_rate,as_of`. Every value is text as the source gave it, so the byte-for-byte rule of the prices holds. A missing value is an empty cell. A value that is not a plain non-negative number is left empty, and a line with no number is not written.
+- Exchange rows (`src` is `kr`, `cb` or `bs`): `bid`, `ask` and `volume`, the volume of the last 24 hours in coins. They come from the same answers as the prices (Kraken `Ticker` `b`, `a`, `v`; Coinbase `bid`, `ask`, `volume`; Bitstamp `bid`, `ask`, `volume`), so they cost no request. They share the `ts` of the price row, and are written in every run, but only when the price row of the same coin and `src` was written: the price row is the judge of the spacing and clock guard.
+- Coin Metrics rows (`src` is `cm`), once per 24 hours: `market_cap` (`CapMrktEstUSD`, all coins), `volume_usd` (`volume_reported_spot_usd_1d`, all coins), `supply` (`SplyCur`), `tx_count` (`TxCnt`), `active_addresses` (`AdrActCnt`) and `hash_rate` (`HashRate`). The last four exist only for some assets (on 2026-10-31, of the 30 coins in the config: supply 16, activity 17, hash rate 5; of the 28 enabled coins a live check gave 14, 15 and 3), so their cells are often empty. `as_of` is the UTC day of the newest daily record. The values are the figures of a finished day, so `as_of` is usually yesterday.
+- The Community API refuses a whole request with HTTP 403 when one asset lacks one metric. So each run that is due reads the catalogue (`/catalog/asset-metrics`) first, asks each metric only for the assets that have it, and lets metrics with the same assets share one request. That is about 3 to 7 requests a day, far below the limit of 10 per 6 seconds.
+- The 24 hour gate: `state/market.json` holds `daily_updated_at`. Every run checks it. When 24 hours have passed (or the file is missing or broken) the daily step runs. The time is set only when rows were written. A failed step stores nothing, logs a short note without response text, and the next run asks again. After a rejected push the gate is checked again, so two writers never store the metrics twice. A day can be skipped now and then, because the gate counts 24 hours from the last update and not calendar days.
+- A problem in the market step never stops the price rows: it is logged and the run goes on. It is not in the request log and not in `state/status.json`.
+- Licence: the Coin Metrics values are under the same terms as the Coin Metrics prices (ADR 0002 Addendum A3, CC BY-NC 4.0, credit and link on the page). The exchange values come from the same answers as the prices, so they carry the same open terms question.
+- Size: about 90 more lines per run (3 exchanges, 30 coins) and 30 more lines a day. This was not measured. Re-measure after a week of live data (see the follow-up below).
+- Not done here: the dashboard does not show these values yet, and the alerts do not use them.
+
 ## Consequences
 
 - Good: growth is linear and small. About 27 MB per year at the default (upper bound), 137 MB over five years.

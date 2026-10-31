@@ -19,14 +19,26 @@ import {
 	enabledCoins,
 	loadConfig,
 } from './config.ts';
-import { appendRequestLog, appendRows, readLastRow } from './csv.ts';
+import {
+	appendMarketRows,
+	appendRequestLog,
+	appendRows,
+	readLastRow,
+} from './csv.ts';
 import { fetchGapRows, readPending, writePending } from './gapfill.ts';
 import type { GapResult, GapTarget } from './gapfill.ts';
 import { BOT_AUTHOR, commitAndPush } from './gitdata.ts';
 import type { GitOpts } from './gitdata.ts';
 import { createHttpClient } from './http.ts';
 import { keepaliveIfStale } from './keepalive.ts';
+import {
+	dailyDue,
+	dailyStored,
+	readMarketState,
+	writeMarketState,
+} from './market-state.ts';
 import { createSeriesReader } from './series.ts';
+import { fetchDailyMetrics } from './sources/coinmetrics-daily.ts';
 import { ADAPTERS } from './sources/index.ts';
 import {
 	applyRun,
@@ -40,6 +52,7 @@ import { SRC_CODE } from './types.ts';
 import type {
 	Config,
 	HttpClient,
+	MarketRow,
 	PriceRow,
 	SourceAdapter,
 	SourceId,
@@ -77,6 +90,8 @@ export interface CollectDeps {
 	keepalive: { mainDir: string; maxAgeDays: number } | null;
 	/** Fills the time of missed runs with Bitstamp or Kraken candles (ADR 0005 D8). `null` turns it off. */
 	gapFill: { pauseMs: number } | null;
+	/** Stores the daily Coin Metrics metrics every 24 hours (ADR 0004 D8). Missing or `false` turns it off. */
+	dailyMetrics?: boolean;
 	log: (line: string) => void;
 }
 
@@ -101,6 +116,9 @@ interface Applied {
 	written: PriceRow[];
 	/** Candle rows of the gap fill that were written before the rows of the run. */
 	gapWritten: number;
+	/** Lines of bid, ask and volume, and of the daily metrics, that went to the market files. */
+	marketWritten: number;
+	dailyWritten: number;
 	skipped: number;
 	previousStatus: Status;
 	status: Status;
@@ -260,6 +278,80 @@ function decidePublish(config: Config, prev: Status, now: Date): boolean {
 }
 
 /**
+ * Writes the market files: the bid, ask and volume of every price row that was written, and the daily
+ * metrics when they are still due. A price row is the judge, so a skipped price row skips its market row too.
+ * A problem here is logged and never stops the price rows.
+ */
+async function appendMarket(
+	deps: CollectDeps,
+	checked: Checked[],
+	written: PriceRow[],
+	daily: MarketRow[],
+	now: Date
+): Promise<{ marketWritten: number; dailyWritten: number }> {
+	let marketWritten = 0;
+	let dailyWritten = 0;
+	try {
+		const keys = new Set(written.map((row) => `${row.coin}|${row.src}`));
+		marketWritten = await appendMarketRows(
+			deps.dataRoot,
+			checked
+				.flatMap((item) => item.run.market ?? [])
+				.filter((row) => keys.has(`${row.coin}|${row.src}`))
+		);
+		if (daily.length > 0) {
+			const stateFile = path.join(deps.dataRoot, 'state', 'market.json');
+			// After a rejected push or a second writer the metrics may be stored already
+			if (dailyDue(await readMarketState(stateFile), now)) {
+				dailyWritten = await appendMarketRows(deps.dataRoot, daily);
+				if (dailyWritten > 0) {
+					await writeMarketState(stateFile, dailyStored(now));
+				}
+			}
+		}
+	} catch (error) {
+		deps.log(`market: failed: ${describeError(error)}`);
+	}
+	return { marketWritten, dailyWritten };
+}
+
+/**
+ * The daily Coin Metrics metrics, asked when 24 hours have passed since they were stored. Reads the state
+ * file, calls the API, never writes. A failure gives no rows, and the next run asks again. `[]`: not due.
+ */
+async function dailyStep(deps: CollectDeps, now: Date): Promise<MarketRow[]> {
+	if (deps.dailyMetrics !== true) {
+		return [];
+	}
+	try {
+		const state = await readMarketState(
+			path.join(deps.dataRoot, 'state', 'market.json')
+		);
+		if (!dailyDue(state, now)) {
+			return [];
+		}
+		const result = await fetchDailyMetrics(
+			enabledCoins(deps.config, 'coinmetrics'),
+			deps.http,
+			deps.now
+		);
+		for (const note of result.problems) {
+			deps.log(`daily metrics: ${note}`);
+		}
+		if (!result.ok) {
+			deps.log(
+				'daily metrics: nothing to store, the next run asks again'
+			);
+			return [];
+		}
+		return result.rows;
+	} catch (error) {
+		deps.log(`daily metrics: failed: ${describeError(error)}`);
+		return [];
+	}
+}
+
+/**
  * The part that can run again after a rejected push: it appends the rows and the request log and
  * writes the status. It reads the files it needs from the checkout, so a re-run after a reset is safe.
  */
@@ -267,6 +359,7 @@ async function applyToCheckout(
 	deps: CollectDeps,
 	checked: Checked[],
 	gapFill: GapResult | null,
+	daily: MarketRow[],
 	now: Date
 ): Promise<Applied> {
 	const settings = deps.config.settings;
@@ -289,6 +382,7 @@ async function applyToCheckout(
 		deps.dataRoot,
 		checked.map((item) => item.run.log)
 	);
+	const market = await appendMarket(deps, checked, written, daily, now);
 
 	const summary: RunSummary = {
 		phase: settings.phase,
@@ -318,6 +412,8 @@ async function applyToCheckout(
 	return {
 		written,
 		gapWritten: gap.written.length,
+		marketWritten: market.marketWritten,
+		dailyWritten: market.dailyWritten,
 		skipped: skipped.length,
 		previousStatus: prev,
 		status,
@@ -495,6 +591,7 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 	}
 
 	const gapFill = await gapStep(deps, now);
+	const daily = await dailyStep(deps, now);
 	const box: { applied?: Applied } = {};
 	const result = await commitAndPush(
 		deps.git,
@@ -505,7 +602,13 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 			return `data: ${minuteOf(now)} ${count} ${count === 1 ? 'row' : 'rows'}${gap > 0 ? `, ${gap} gap fill` : ''}`;
 		},
 		async () => {
-			box.applied = await applyToCheckout(deps, checked, gapFill, now);
+			box.applied = await applyToCheckout(
+				deps,
+				checked,
+				gapFill,
+				daily,
+				now
+			);
 		}
 	);
 	const applied = box.applied;
@@ -521,6 +624,11 @@ async function collect(deps: CollectDeps): Promise<CollectResult> {
 
 	if (applied.gapWritten > 0) {
 		deps.log(`gap fill: ${applied.gapWritten} candle rows written`);
+	}
+	if (applied.marketWritten > 0 || applied.dailyWritten > 0) {
+		deps.log(
+			`market: ${applied.marketWritten} lines written, ${applied.dailyWritten} daily`
+		);
 	}
 	if (settings.phase === 'production' && settings.features.alerts) {
 		await alertStep(deps, now);
@@ -654,6 +762,7 @@ export async function runCli(
 						}
 					: null,
 			gapFill: { pauseMs: GAP_FILL_PAUSE_MS },
+			dailyMetrics: true,
 			log,
 		};
 	} catch (error) {
