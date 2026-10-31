@@ -179,7 +179,11 @@ test('historyNote names the source and the time where the older prices end', () 
 	const now = Date.parse('2026-10-30T10:00:00Z');
 	assert.equal(
 		lib.historyNote({ src: 'bs-ohlc', until: '2026-10-29T20:46:24Z' }, now),
-		'Prices before 29 Oct 20:46 UTC are 15-minute candle closes from Bitstamp.'
+		'Prices before 29 Oct 20:46 UTC are 15-minute candle closes from Bitstamp. A few coins have only daily closes from Kraken, or no earlier prices.'
+	);
+	assert.equal(
+		lib.historyNote({ src: 'kr-ohlc', until: '2026-10-29T20:46:24Z' }, now),
+		'Prices before 29 Oct 20:46 UTC are candle closes from Kraken.'
 	);
 	assert.equal(lib.historyNote(undefined, now), '');
 	assert.equal(lib.historyNote({ src: 'bs-ohlc' }, now), '');

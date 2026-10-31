@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { ConfigError, enabledCoins, loadConfig } from '../src/config.ts';
+import {
+	ConfigError,
+	candleSource,
+	enabledCoins,
+	hasSource,
+	loadConfig,
+	primarySource,
+} from '../src/config.ts';
+import type { CoinConfig } from '../src/types.ts';
 import { usableIds } from '../tools/check-symbols.ts';
 
 const VALID = new URL('./fixtures/config/valid.json', import.meta.url);
@@ -204,28 +212,33 @@ describe('config', () => {
 			alerts: false,
 			publish: true,
 		});
+		const ids =
+			'BTC ETH BNB XRP SOL TRX RUNE DOT ATOM AVAX ETC KSM SC ICP EGLD CHZ MINA ZIL NEAR LINK CAKE UNI XLM SUI CRV ADA XTZ'.split(
+				' '
+			);
 		assert.deepEqual(
 			config.coins.map((coin) => coin.id),
-			[
-				'BTC',
-				'ETH',
-				'BNB',
-				'XRP',
-				'SOL',
-				'DOGE',
-				'LINK',
-				'ADA',
-				'XLM',
-				'LTC',
-				'USDT',
-			]
+			[...ids, 'DOGE', 'LTC', 'USDT']
 		);
-		for (const source of config.settings.stored_sources) {
-			assert.equal(enabledCoins(config, source).length, 11);
+		// The two coins that left the list are kept, disabled, so their history stays
+		for (const id of ['DOGE', 'LTC']) {
+			assert.equal(
+				config.coins.find((coin) => coin.id === id)?.enabled,
+				false
+			);
 		}
+		assert.equal(enabledCoins(config, 'kraken').length, 27);
+		assert.equal(enabledCoins(config, 'coinmetrics').length, 28);
+		// ZIL is only on Coin Metrics, so Coin Metrics is its primary source and it has no candles
+		const zil = config.coins.find((coin) => coin.id === 'ZIL');
+		assert.deepEqual(Object.keys(zil?.sources ?? {}), [
+			'coinmetrics_asset',
+			'coingecko_id',
+		]);
+		assert.equal(primarySource(config, zil as CoinConfig), 'coinmetrics');
+		assert.equal(candleSource(zil as CoinConfig), null);
 		const [btc, eth, bnb] = config.coins;
 		assert.equal(btc.sources.kraken_pair, 'XBTUSD');
-		assert.equal(config.coins[5].sources.kraken_pair, 'XDGUSD');
 		assert.deepEqual(btc.alerts, {
 			move_1h: { threshold_percent: 3 },
 			move_24h: { threshold_percent: 8 },
@@ -236,11 +249,32 @@ describe('config', () => {
 		});
 		assert.equal(bnb.alerts, undefined);
 		// The rate entry that turns the prices into USDT, with no alerts of its own
-		const usdt = config.coins[10];
-		assert.equal(usdt.role, 'rate');
-		assert.deepEqual(usdt.alerts, { enabled: false });
-		assert.equal(usdt.sources.kraken_pair, 'USDTUSD');
+		const usdt = config.coins.find((coin) => coin.id === 'USDT');
+		assert.equal(usdt?.role, 'rate');
+		assert.deepEqual(usdt?.alerts, { enabled: false });
+		assert.equal(usdt?.sources.kraken_pair, 'USDTUSD');
 		assert.equal(btc.role, undefined);
+	});
+
+	test('the primary source and the candle source follow the ids a coin has', async () => {
+		const config = await loadConfig(fileURLToPath(REAL));
+		const coin = (id: string) =>
+			config.coins.find((item) => item.id === id) as CoinConfig;
+		assert.equal(primarySource(config, coin('BTC')), 'kraken');
+		assert.deepEqual(candleSource(coin('BTC')), {
+			src: 'bs-ohlc',
+			market: 'btcusd',
+		});
+		// RUNE and SC are only on Kraken and Coin Metrics, so Kraken gives the candles
+		assert.deepEqual(candleSource(coin('RUNE')), {
+			src: 'kr-ohlc',
+			market: 'RUNEUSD',
+		});
+		assert.equal(hasSource(coin('RUNE'), 'coinbase'), false);
+		assert.equal(hasSource(coin('TRX'), 'coinbase'), false);
+		// Bitstamp trades TRX too rarely, so TRX has no Bitstamp market and Kraken gives its candles
+		assert.equal(hasSource(coin('TRX'), 'bitstamp'), false);
+		assert.equal(candleSource(coin('TRX'))?.src, 'kr-ohlc');
 	});
 
 	test('enabledCoins skips disabled coins and coins without an id for the source', async () => {
@@ -511,10 +545,10 @@ describe('config', () => {
 			schema: false,
 		},
 		{
-			name: 'enabled coin without an id for a stored source',
-			path: ['coins', 1, 'sources', 'bitstamp_market'],
-			value: undefined,
-			message: /no "bitstamp_market"/,
+			name: 'enabled coin without an id for any stored source',
+			path: ['coins', 1, 'sources'],
+			value: { coingecko_id: 'x' },
+			message: /no id for any stored source/,
 			schema: false,
 		},
 		{

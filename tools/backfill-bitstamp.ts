@@ -144,6 +144,7 @@ const USAGE = `Usage: node tools/backfill-bitstamp.ts --data-root <dir> [options
   --config <file>     default config/coins.json
   --from <iso>        first candle start, default ${DEFAULT_FROM}
   --until <iso>       candles closing at this time or later are left out, default ${DEFAULT_UNTIL}
+  --only <ids>        only these coins, for example BTC,ETH (default: every enabled coin with a Bitstamp market)
   --pause-ms <ms>     pause between two requests, default ${DEFAULT_PAUSE_MS}, at least ${MIN_PAUSE_MS}
   --dry-run           print the plan and the number of requests, call nothing
 `;
@@ -166,6 +167,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
 				config: { type: 'string' },
 				from: { type: 'string' },
 				until: { type: 'string' },
+				only: { type: 'string' },
 				'pause-ms': { type: 'string' },
 				'dry-run': { type: 'boolean' },
 				help: { type: 'boolean' },
@@ -217,9 +219,14 @@ export async function main(argv: string[], io: Io): Promise<number> {
 	const config = await loadConfig(
 		typeof values.config === 'string' ? values.config : 'config/coins.json'
 	);
+	const only =
+		typeof values.only === 'string' ? values.only.split(',') : null;
 	const markets: Market[] = [];
 	for (const coin of config.coins) {
 		const market = coin.sources.bitstamp_market;
+		if (only !== null && !only.includes(coin.id)) {
+			continue;
+		}
 		if (coin.enabled && market !== undefined) {
 			markets.push({ coin: coin.id, market });
 		}

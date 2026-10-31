@@ -3,14 +3,14 @@
 - Date: 2026-10-29
 - Where: throwaway public repositories of the `borbiuk` account (`git-coin-pilot`, `git-coin-throwaway`, `git-coin-canary-a`, `-b`, `-c`). The workflows are the templates in [throwaway/](throwaway/README.md).
 - Runner: `ubuntu-26.04`, OS "Ubuntu 26.04.1 LTS", image `ubuntu26/20261026.180.1` (probe) and `20261025.179.1` (bot push test), runner version 2.338.0, Node.js `v24.22.1`, Azure regions West US, South Central US and Central US. This confirms ADR 0003: the pinned label exists and Node 24.22.1 is the default.
-- Status: some checks are finished. The rest wait for time (pilot 72 hours, scheduled runs, canary 61 days) or for an email that only the owner can see.
+- Status: some checks are finished. The rest wait for time (pilot 72 hours, canary 61 days).
 
 ## Item 4: schedule pilot (running)
 
 - Repo `borbiuk/git-coin-pilot`, pushed 2026-10-29T17:36:05Z. This time is the `--from` value of `analyze-pilot.mjs`. Three workflows (`pilot-5m`, `pilot-15m`, `pilot-30m`) are active. One manual run of each wrote a row to its branch (`pilot-5m`, `pilot-15m`, `pilot-30m`). Manual rows are ignored by the analysis.
 - Read the result after 2026-11-01T17:36Z (72 hours), better after a weekend. Steps: [throwaway/README.md](throwaway/README.md), "Read the pilot result".
 
-## Item 3: source probe (first sample)
+## Item 3: source probe (15 runs)
 
 One run at 2026-10-29T17:44:57Z (workflow `probe`, run 40924247149 in `git-coin-throwaway`). The first three runs failed because of a script defect (GitHub starts steps with `bash -e`; fixed by `set +e` in the three throwaway workflows, commit "Turn off bash -e in the throwaway probe, email and push tests").
 
@@ -24,10 +24,25 @@ One run at 2026-10-29T17:44:57Z (workflow `probe`, run 40924247149 in `git-coin-
 | Coin Metrics `asset-metrics` (10 assets, one call)   | 200  | 316           | 10 of 10    |
 | CoinGecko keyless `simple/price`                     | 200  | 167           | 10 of 10    |
 
-- No block, no HTTP 403, 451 or 429 in this run. All sources sit behind Cloudflare. This is one sample from one runner at one time. The probe also runs on a schedule (12 times a day, three of them at minute 0) in the throwaway repo, so the 200 and 429 rates need that data before the item is closed.
+- No block, no HTTP 403, 451 or 429 in this run. All sources sit behind Cloudflare. This is one sample from one runner at one time. The scheduled runs are in the next block.
 - Kraken result keys from the runner: `ADAUSD BNBUSD LINKUSD SOLUSD XDGUSD XETHZUSD XLTCZUSD XXBTZUSD XXLMZUSD XXRPZUSD`. They match the ADR 0002 table.
 - Coin Metrics rate limit headers on the runner: `x-ratelimit-plan: download`, `x-ratelimit-limit: 6000, 6000;w=20;comment="sliding window"`. That is 6,000 requests per 20-second window, not the "10 requests per 6 seconds" of the docs.
 - Coin Metrics returned all ten assets in one request, without `next_page_url`.
+
+Result of all successful runs, read on 2026-10-31: 15 runs (14 scheduled and the manual run above) from 2026-10-29T17:44Z to 2026-10-31T10:12Z, including runs at minute 0 and minute 58. The three failed runs are the `bash -e` defect above.
+
+| Request                                    | Calls | HTTP 200 | HTTP 429 | Average ms |
+| ------------------------------------------ | ----- | -------- | -------- | ---------- |
+| Kraken `Ticker?pair=`                      | 15    | 15       | 0        | 201        |
+| Kraken `AssetPairs`                        | 15    | 15       | 0        | 191        |
+| Kraken `Ticker` without `pair` (fallback)  | 15    | 15       | 0        | 132        |
+| Coinbase `products/{id}/ticker` (10 coins) | 150   | 150      | 0        | 52 to 98   |
+| Bitstamp `ticker/`                         | 15    | 15       | 0        | 317        |
+| Coin Metrics `asset-metrics`               | 15    | 15       | 0        | 210        |
+| CoinGecko keyless `simple/price`           | 15    | 15       | 0        | 200        |
+
+- No HTTP 403, 451 or 429 in any run. All ten coins came back from every source in every run, with one exception.
+- The exception: in the run of 2026-10-30T02:29:47Z Kraken answered HTTP 200 with `{"error":["EGeneral:No data"],"result":{}}` for `Ticker?pair=` and with `{"error":[],"result":{}}` for `Ticker` without `pair`. `AssetPairs` in the same run was normal. An HTTP 200 alone does not show a good Kraken answer: read the `error` array and the `result`.
 
 ## Item 6: bot push, rulesets, concurrency (done)
 
@@ -45,20 +60,22 @@ Repo `git-coin-throwaway`, orphan branch `data`, ruleset `protect-data-and-defau
 ## Item 2: Pages (partly done)
 
 - Pages source "GitHub Actions" was set through the API. A manual run deployed in 9 seconds. The page answered HTTP 200 with `cache-control: max-age=600` and an `etag`. `content-encoding: gzip` was not present, because the page is only 228 bytes. Check gzip with a larger file before the dashboard goes live.
-- Open: a scheduled run (every 3 hours) must deploy too. Check the page text `event: schedule` after the next scheduled run.
+- A scheduled run (every 3 hours) deployed too: run 41189353689 (2026-10-31T09:35Z). The page shows `event: schedule`, answers HTTP 200 and has `cache-control: max-age=600`. Only the gzip check is open.
 
-## Item 5: Issue email (waiting for the owner)
+## Item 5: Issue email (done)
 
-Run in `git-coin-throwaway`, times in UTC on 2026-10-29. The owner reads the inbox and records the answers here:
+Run in `git-coin-throwaway`, times in UTC on 2026-10-29. The owner read the inbox on 2026-10-31. The mail client shows minutes only, so "same minute" is the finest delay known. The owner's real notification settings were used; the exact settings were not written down.
 
-| Variant | Issue                                   | Created  | Email arrived? When? |
-| ------- | --------------------------------------- | -------- | -------------------- |
-| (a)     | `[email test] plain at 17:53:47Z`       | 17:53:48 | open                 |
-| (b)     | `[email test] mention at 17:54:08Z`     | 17:54:08 | open                 |
-| (c)     | `[email test] assignee at 17:54:29Z`    | 17:54:29 | open                 |
-| fail    | manual run of `issue-email-test` failed | 17:55:16 | open                 |
+| Variant | Issue                                   | Created  | Email                                                                              |
+| ------- | --------------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| (a)     | `[email test] plain at 17:53:47Z`       | 17:53:48 | No. Nothing found in the inbox by title.                                           |
+| (b)     | `[email test] mention at 17:54:08Z`     | 17:54:08 | Yes, 17:54. Reason "Mention".                                                      |
+| (c)     | `[email test] assignee at 17:54:29Z`    | 17:54:29 | Yes, 17:54, two emails: "Assigned to and mentioned" and "Assigned #3 to @borbiuk". |
+| fail    | manual run of `issue-email-test` failed | 17:55:16 | Yes, 17:55.                                                                        |
 
-- Scheduled failure: the repository variable `EMAIL_TEST_FAIL=true` is set, so the next scheduled run (every 3 hours) fails on purpose. The email should go to the account that last edited the cron line (`borbiuk`). After the first scheduled failure delete the flag: `gh variable delete EMAIL_TEST_FAIL --repo borbiuk/git-coin-throwaway`.
+- Pass: variant (c), the shape of the real alerts (ADR 0006), arrived in the same minute. A plain Issue does not email the owner, so the alert step must always set the mention and the assignee.
+- Scheduled failures: the repository variable `EMAIL_TEST_FAIL=true` made six scheduled runs fail on purpose. All six failed-run emails reached `borbiuk`, the account that last edited the cron line (commits b08233a and f435c7f), within 7 minutes of the run being created. Runs (UTC): 10-29 23:00, 10-30 06:31, 13:38, 20:10, 10-31 01:05, 09:58. Emails (UTC): 23:00, 06:32, 13:41, 20:17, 01:05, 09:58. The variable was deleted on 2026-10-31.
+- Delivery of this schedule, a side note: the cron `47 */3 * * *` ticks 13 times between 2026-10-29T20:47Z and 2026-10-31T08:47Z. Six runs started, the first at 23:00. The pilot (item 4) gives the proper numbers.
 
 ## Item 9: 60-day canary (running)
 

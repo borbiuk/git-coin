@@ -36,8 +36,8 @@ delete process.env.GIT_DIR;
 delete process.env.GIT_WORK_TREE;
 delete process.env.GIT_INDEX_FILE;
 
-const REPO_ROOT = join(import.meta.dirname, '..', '..');
-const REAL_CONFIG = join(REPO_ROOT, 'config', 'coins.json');
+// A copy of the config of the first ten coins and USDT, so the row counts of the tests do not follow the owner's coin list
+const REAL_CONFIG = join(import.meta.dirname, 'fixtures', 'coins.json');
 
 /**
  * The real config with publishing turned off, so the e2e tests do not depend on the

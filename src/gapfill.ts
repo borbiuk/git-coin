@@ -1,5 +1,6 @@
 // Gap fill (ADR 0005 D8). When scheduled runs are missed, the collector asks Bitstamp for the 15-minute
 // candles of the time since the last stored row and returns them as rows with `src=bs-ohlc`.
+// A coin with no Bitstamp market is filled from Kraken in the same way (`src=kr-ohlc`, at most 720 candles).
 // The caller only appends these rows, so no stored line is touched (ADR 0004 D6).
 // A coin that could not be filled stays in `state/gapfill.json` with the start of its gap, so a later run
 // fills it even after the rows of the failed run were stored.
@@ -11,10 +12,13 @@ import { isoSeconds } from './time.ts';
 import type { HttpClient, PriceRow } from './types.ts';
 
 const BASE_URL = 'https://www.bitstamp.net/api/v2/ohlc';
-const SRC = 'bs-ohlc';
+const KRAKEN_URL = 'https://api.kraken.com/0/public/OHLC';
+export type CandleSrc = 'bs-ohlc' | 'kr-ohlc';
 export const STEP_SECONDS = 900;
 /** The largest `limit` of the endpoint. One request covers this many candles (10.4 days). */
 export const LIMIT = 1000;
+/** Kraken returns at most this many of the newest candles (7.5 days), whatever `since` says. */
+export const KRAKEN_LIMIT = 720;
 /** A gap shorter than this is a normal delay of a run, not a missed one. */
 export const MIN_GAP_SECONDS = 1200;
 const DECIMAL = /^\d+(\.\d+)?$/;
@@ -31,6 +35,8 @@ export interface Candle {
 export interface GapTarget {
 	coin: string;
 	market: string;
+	/** The candle source of the market: Bitstamp `ohlc` or Kraken `OHLC`. */
+	src: CandleSrc;
 	fromSec: number;
 }
 
@@ -77,13 +83,51 @@ export function parseCandles(json: unknown): Candle[] {
 	return candles.sort((a, b) => a.start - b.start);
 }
 
+/** Reads one answer of the Kraken `OHLC` endpoint. Throws when it holds an error or has not the expected shape. */
+export function parseKrakenCandles(json: unknown): Candle[] {
+	const body = json as { error?: unknown; result?: unknown } | null;
+	if (Array.isArray(body?.error) && body.error.length > 0) {
+		throw new Error(`Kraken answered: ${body.error.join(', ')}`);
+	}
+	const result = body?.result;
+	if (typeof result !== 'object' || result === null) {
+		throw new Error('The answer has no result');
+	}
+	const key = Object.keys(result).find((name) => name !== 'last');
+	const list =
+		key === undefined
+			? undefined
+			: (result as Record<string, unknown>)[key];
+	if (!Array.isArray(list)) {
+		throw new Error('The answer has no candle list');
+	}
+	const candles = list.map((item: unknown) => {
+		const entry = Array.isArray(item) ? item : [];
+		const [time, , , , close, , volume] = entry as unknown[];
+		if (
+			typeof time !== 'number' ||
+			!Number.isInteger(time) ||
+			typeof close !== 'string' ||
+			!DECIMAL.test(close) ||
+			Number(close) <= 0 ||
+			typeof volume !== 'string' ||
+			!DECIMAL.test(volume)
+		) {
+			throw new Error('A candle has a field that is not a plain number');
+		}
+		return { start: time, close, volume };
+	});
+	return candles.sort((a, b) => a.start - b.start);
+}
+
 /**
  * The request that covers the gap, or null when there is no gap. The first candle is the one that holds
  * the last stored row. A gap longer than one request (10.4 days) is filled from its newest part only.
  */
 export function planRequest(
 	fromSec: number,
-	nowSec: number
+	nowSec: number,
+	maxCandles = LIMIT
 ): { startSec: number; limit: number } | null {
 	if (nowSec - fromSec < MIN_GAP_SECONDS) {
 		return null;
@@ -91,10 +135,10 @@ export function planRequest(
 	const newest = Math.floor(nowSec / STEP_SECONDS) * STEP_SECONDS;
 	const startSec = Math.max(
 		Math.floor(fromSec / STEP_SECONDS) * STEP_SECONDS,
-		newest - (LIMIT - 1) * STEP_SECONDS
+		newest - (maxCandles - 1) * STEP_SECONDS
 	);
 	const limit = Math.min(
-		LIMIT,
+		maxCandles,
 		Math.ceil((nowSec - startSec) / STEP_SECONDS) + 1
 	);
 	return { startSec, limit };
@@ -108,7 +152,8 @@ export function candleRows(
 	coin: string,
 	candles: Candle[],
 	fromSec: number,
-	nowSec: number
+	nowSec: number,
+	src: CandleSrc
 ): PriceRow[] {
 	const rows: PriceRow[] = [];
 	for (const candle of candles) {
@@ -124,7 +169,7 @@ export function candleRows(
 			ts: isoSeconds(new Date(closeSec * 1000)),
 			coin,
 			price: candle.close,
-			src: SRC,
+			src,
 			age_s: null,
 		});
 	}
@@ -182,7 +227,12 @@ export async function fetchGapRows(
 	let requests = 0;
 	let stopped = false;
 	for (const target of targets) {
-		const plan = planRequest(target.fromSec, opts.nowSec);
+		const kraken = target.src === 'kr-ohlc';
+		const plan = planRequest(
+			target.fromSec,
+			opts.nowSec,
+			kraken ? KRAKEN_LIMIT : LIMIT
+		);
 		if (plan === null) {
 			continue;
 		}
@@ -195,7 +245,9 @@ export async function fetchGapRows(
 			await opts.sleep(opts.pauseMs);
 		}
 		requests += 1;
-		const url = `${BASE_URL}/${target.market}/?step=${STEP_SECONDS}&limit=${plan.limit}&start=${plan.startSec}`;
+		const url = kraken
+			? `${KRAKEN_URL}?pair=${target.market}&interval=15&since=${plan.startSec - 1}`
+			: `${BASE_URL}/${target.market}/?step=${STEP_SECONDS}&limit=${plan.limit}&start=${plan.startSec}`;
 		const answer = await opts.http.getJson({ url, timeoutMs: 20_000 });
 		if (answer.status === 429) {
 			opts.log(
@@ -215,17 +267,25 @@ export async function fetchGapRows(
 		try {
 			const found = candleRows(
 				target.coin,
-				parseCandles(answer.json),
+				kraken
+					? parseKrakenCandles(answer.json)
+					: parseCandles(answer.json),
 				target.fromSec,
-				opts.nowSec
+				opts.nowSec,
+				target.src
 			);
 			result.rows.push(...found);
 			opts.log(
 				`gap fill: ${target.coin}: ${found.length} candles from ${isoSeconds(new Date(plan.startSec * 1000))}`
 			);
 		} catch (error) {
-			opts.log(`gap fill: ${target.coin}: ${describeError(error)}`);
+			const reason = describeError(error);
+			opts.log(`gap fill: ${target.coin}: ${reason}`);
 			result.pending[target.coin] = open;
+			// Kraken reports a rate limit as an error text inside a 200 answer
+			if (reason.includes('Rate limit')) {
+				stopped = true;
+			}
 		}
 	}
 	return result;

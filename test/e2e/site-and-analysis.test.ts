@@ -355,7 +355,7 @@ test('the workflow commands build the page: copy the site, then run the builder 
 	const workspace = join(world.root, 'publish-ws');
 	mkdirSync(join(workspace, 'code', 'config'), { recursive: true });
 	cpSync(
-		join(REPO, 'config', 'coins.json'),
+		join(import.meta.dirname, 'fixtures', 'coins.json'),
 		join(workspace, 'code', 'config', 'coins.json')
 	);
 	cpSync(world.data, join(workspace, 'data'), { recursive: true });

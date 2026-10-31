@@ -490,13 +490,15 @@ function parseConfig(raw: unknown): Config {
 		if (!item.enabled) {
 			continue;
 		}
-		for (const source of parsedSettings.stored_sources) {
-			if (item.sources[SOURCE_FIELD[source]] === undefined) {
-				fail(
-					`config.coins[${item.id}].sources`,
-					`enabled coin has no "${SOURCE_FIELD[source]}" but "${source}" is a stored source`
-				);
-			}
+		// A coin can be missing on some exchanges. It needs an id for at least one stored source.
+		const found = parsedSettings.stored_sources.some(
+			(source) => item.sources[SOURCE_FIELD[source]] !== undefined
+		);
+		if (!found) {
+			fail(
+				`config.coins[${item.id}].sources`,
+				'enabled coin has no id for any stored source'
+			);
 		}
 	}
 
@@ -526,4 +528,39 @@ export function enabledCoins(config: Config, source: SourceId): CoinConfig[] {
 	return config.coins.filter(
 		(item) => item.enabled && item.sources[field] !== undefined
 	);
+}
+
+/** Whether the coin has an id for the source. */
+export function hasSource(coin: CoinConfig, source: SourceId): boolean {
+	return coin.sources[SOURCE_FIELD[source]] !== undefined;
+}
+
+/** The first stored source that has an id for the coin. It gives the live series of the site. `null`: none. */
+export function primarySource(
+	config: Config,
+	coin: CoinConfig
+): SourceId | null {
+	return (
+		config.settings.stored_sources.find((source) =>
+			hasSource(coin, source)
+		) ?? null
+	);
+}
+
+/**
+ * The candle source of a coin for its history and for the gap fill (ADR 0005 D8): Bitstamp when the coin has
+ * a market there, else Kraken. `null`: the coin has neither, so its series starts with its first live row.
+ */
+export function candleSource(
+	coin: CoinConfig
+): { src: 'bs-ohlc' | 'kr-ohlc'; market: string } | null {
+	const bitstamp = coin.sources.bitstamp_market;
+	if (bitstamp !== undefined) {
+		return { src: 'bs-ohlc', market: bitstamp };
+	}
+	const kraken = coin.sources.kraken_pair;
+	if (kraken !== undefined) {
+		return { src: 'kr-ohlc', market: kraken };
+	}
+	return null;
 }

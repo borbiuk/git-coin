@@ -662,6 +662,27 @@ test('an enabled rate entry converts the prices, is not shown, and a disabled on
 	assert.equal(usd.coins.BTC?.price, 300);
 });
 
+test('Kraken daily closes before the Bitstamp candles are joined to them, in time order', async () => {
+	await writeDay(root, 'BTC', '2026-10-26', [
+		'2026-10-26T00:00:00Z,50,kr-ohlc,',
+	]);
+	await writeDay(root, 'BTC', '2026-10-27', [
+		'2026-10-27T00:00:00Z,60,kr-ohlc,',
+		'2026-10-27T12:15:00Z,100,bs-ohlc,',
+	]);
+	await writeDay(root, 'BTC', '2026-10-28', ['2026-10-28T12:00:00Z,200,kr,']);
+	await buildSite({
+		dataRoot: root,
+		config: await loadFixtureConfig(),
+		outDir: out,
+		now: NOW,
+	});
+	const seven = await readOut<{ p: number[] }>('coins/BTC.7d.json');
+	assert.deepEqual(seven.p, [50, 60, 100, 200]);
+	const latest = await readOut<{ history?: { src: string } }>('latest.json');
+	assert.equal(latest.history?.src, 'bs-ohlc');
+});
+
 test('backfilled rows fill the time before the first live row, are converted, and the page is told', async () => {
 	await writeDay(root, 'BTC', '2026-10-27', [
 		'2026-10-27T12:15:00Z,100,bs-ohlc,',
@@ -680,13 +701,17 @@ test('backfilled rows fill the time before the first live row, are converted, an
 		'2026-10-28T12:00:00Z,0.5,kr,',
 	]);
 	const config = await loadFixtureConfig();
+	// The candle source of a coin is its Bitstamp market
+	for (const coin of config.coins) {
+		coin.sources.bitstamp_market = `${coin.id.toLowerCase()}usd`;
+	}
 	config.coins.push({
 		id: 'USDT',
 		name: 'Tether',
 		role: 'rate',
 		enabled: true,
 		added: '2026-10-27',
-		sources: { kraken_pair: 'USDTUSD' },
+		sources: { kraken_pair: 'USDTUSD', bitstamp_market: 'usdtusd' },
 		alerts: { enabled: false },
 	});
 	await buildSite({ dataRoot: root, config, outDir: out, now: NOW });

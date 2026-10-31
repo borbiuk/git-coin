@@ -229,7 +229,11 @@ export function historyNote(history, nowMs) {
 		return '';
 	}
 	const name = sourceInfo(history.src).name;
-	return `Prices before ${formatUtcTime(history.until, nowMs)} are 15-minute candle closes from ${name}.`;
+	const time = formatUtcTime(history.until, nowMs);
+	if (history.src === 'bs-ohlc') {
+		return `Prices before ${time} are 15-minute candle closes from ${name}. A few coins have only daily closes from Kraken, or no earlier prices.`;
+	}
+	return `Prices before ${time} are candle closes from ${name}.`;
 }
 
 /** "Last updated 14:03 UTC (12 minutes ago)". `iso` is `last_point_at`. */
@@ -552,7 +556,7 @@ export function filledNote(filled) {
 		return '';
 	}
 	const total = filled.reduce((sum, [from, to]) => sum + (to - from), 0);
-	return `Shaded: no scheduled run in this time (${formatSpan(total)} in this range). The prices there are 15-minute candle closes from Bitstamp. Hatched: no data.`;
+	return `Shaded: no scheduled run in this time (${formatSpan(total)} in this range). The prices there are 15-minute candle closes from Bitstamp (Kraken for some coins). Hatched: no data.`;
 }
 
 // Ten colours for the coins of the comparison. The pairs of a theme are in style.css (--coin-1 to --coin-10).

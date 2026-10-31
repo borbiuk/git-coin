@@ -2,12 +2,12 @@
 
 # git-coin
 
-**Prices of ten coins, collected on a schedule by GitHub Actions. The git history is the price history.**
+**Prices of 27 coins, collected on a schedule by GitHub Actions. The git history is the price history.**
 
 [![build](https://github.com/borbiuk/git-coin/actions/workflows/build.yml/badge.svg)](https://github.com/borbiuk/git-coin/actions/workflows/build.yml)
 [![license](https://img.shields.io/github/license/borbiuk/git-coin)](LICENSE)
 
-git-coin is a small project with no server. A scheduled GitHub Actions workflow fetches the USD prices of ten coins from public APIs and appends them to CSV files on a separate `data` branch, one commit per run. A static dashboard on GitHub Pages shows the prices. A sharp price move opens a GitHub Issue.
+git-coin is a small project with no server. A scheduled GitHub Actions workflow fetches the USD prices of 27 coins from public APIs and appends them to CSV files on a separate `data` branch, one commit per run. A static dashboard on GitHub Pages shows the prices. A sharp price move opens a GitHub Issue.
 
 > **Test period.** The first 14 days compare four price sources, and all of them are stored. The data of this period is **test data, provided as is**. It can be late, missing or wrong, and it is not financial advice. After the test one source is chosen and the dashboard and the alerts go live. Until then the dashboard is not published.
 
@@ -51,9 +51,9 @@ On the `data` branch, `data/raw/YYYY/MM/DD/<ID>.csv` has one file per day and co
 ## Add a coin
 
 1. Open `config/coins.json` on a branch (the GitHub web editor works) and add an object to `coins`.
-2. Fill `id`, `name`, `added`, and the id of each source in `settings.stored_sources` (for example `kraken_pair`, `coinbase_product`, `bitstamp_market`, `coinmetrics_asset`). A disabled coin keeps `enabled: false` instead of being deleted.
+2. Fill `id`, `name`, `added`, and the id of each stored source that lists the coin (for example `kraken_pair`, `coinbase_product`, `bitstamp_market`, `coinmetrics_asset`). At least one is needed; a coin can be missing on some sources. A disabled coin keeps `enabled: false` instead of being deleted.
 3. Open a pull request. CI checks the file against `config/coins.schema.json`, and a non-required job checks that the symbols exist at the sources.
-4. After the merge the coin starts at the next run. Its history begins with its first row. There is no automatic backfill.
+4. After the merge the coin starts at the next run. Its history begins with its first row. Older prices come from a one-off backfill that the owner runs (`tools/backfill-bitstamp.ts`, `tools/backfill-kraken.ts`) before the merge.
 
 The rules are in [ADR 0007](docs/adr/0007-configuration-and-adding-coins.md).
 

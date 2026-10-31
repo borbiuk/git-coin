@@ -292,10 +292,29 @@ describe('main', () => {
 		assert.equal(code, 0);
 		assert.match(
 			out,
-			/^11 markets, up to 100 requests each, up to 1100 in all, one every 1000 ms/
+			/^18 markets, up to 100 requests each, up to 1800 in all, one every 1000 ms/
 		);
 		assert.match(out, /btcusd .*usdtusd/);
+		assert.ok(!out.includes('ksmusd'));
 		assert.equal(http.urls.length, 0);
+	});
+
+	test('--only limits the run to the named coins', async () => {
+		const { code, out } = await run(
+			[
+				'--data-root',
+				root,
+				'--config',
+				CONFIG,
+				'--only',
+				'BTC,SUI',
+				'--dry-run',
+			],
+			fakeHttp([])
+		);
+		assert.equal(code, 0);
+		assert.match(out, /^2 markets, up to 100 requests each/);
+		assert.match(out, /btcusd suiusd/);
 	});
 
 	test('refuses a missing data root, a too short pause and a start that is off the grid', async () => {

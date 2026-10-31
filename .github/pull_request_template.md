@@ -24,7 +24,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). CI runs the checks; these points are fo
 - [ ] `npm run check` passes (Node.js 24.22.1)
 - [ ] Tests were added or changed for the behavior change, with synthetic fixtures and no network
 - [ ] `README.md`, `AGENTS.md` and the docs are updated for a change of a command, a contract or a setting
-- [ ] A new coin has the id of every source in `settings.stored_sources`
+- [ ] A new coin has the id of each stored source that lists it (at least one)
 - [ ] A change to a workflow keeps the permissions as small as before, and actions are pinned by full SHA
 - [ ] No secret, no personal data and no raw response of a price source is added
 - [ ] The title is in the imperative mood and has at most 72 characters

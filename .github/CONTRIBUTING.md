@@ -39,7 +39,7 @@ npm run check         # the gate for every change
 
 ## Add a coin or a source
 
-- A coin is added in `config/coins.json`: see "Add a coin" in the [README](../README.md) and [ADR 0007](../docs/adr/0007-configuration-and-adding-coins.md). Fill the id of every source in `settings.stored_sources`. Disable a coin instead of deleting it.
+- A coin is added in `config/coins.json`: see "Add a coin" in the [README](../README.md) and [ADR 0007](../docs/adr/0007-configuration-and-adding-coins.md). Fill the id of each stored source that lists the coin (at least one). Disable a coin instead of deleting it.
 - A new source needs an adapter, tests with synthetic fixtures, and a look at its terms. Open a [feature request](https://github.com/borbiuk/git-coin/issues/new?template=feature_request.md) first.
 
 ## Documentation

@@ -113,7 +113,7 @@ The collector needs a list of coins with exchange symbols, and settings for vali
 - `name`: display name.
 - `enabled`: `false` stops collection and alerts, and keeps history.
 - `sources.kraken_pair`: Kraken altname. `sources.coinbase_product`, `sources.bitstamp_market`, `sources.coinmetrics_asset`: ids for the other three test sources (ADR 0002 Revision 2). `sources.coingecko_id`: CoinGecko id for a cross-check or for the CoinGecko reserve.
-- `settings.stored_sources`: which sources the collector calls and stores. The four-source test enables all four. After the choice (ADR 0002 Revision 3) production lists one. A source listed here needs its id in every enabled coin, or the schema check fails. The reserve sources (CoinGecko Demo, CoinMarketCap Basic, Coinranking) are not listed in v1 and would need a secret first (ADR 0009 D2).
+- `settings.stored_sources`: which sources the collector calls and stores. The four-source test enables all four. After the choice (ADR 0002 Revision 3) production lists one. An enabled coin needs an id for at least one listed source (D8); it is not called on the others (D8).
 - `alerts`: overrides of `alert_defaults` (threshold, window, direction, cooldown, `enabled`).
 - `added`: date. `note`: free text for the owner (reason for changes, for example "pair renamed on 2026-11-09").
 - Stored currency is global (`settings.quote`). It is `USD` in v1 (ADR 0002).
@@ -146,6 +146,17 @@ An Issue form or a dispatch input can be added later if outside contributors app
 - Same asset, new pair name (for example a ticker rename): the owner edits `kraken_pair` in place and writes the date in `note`. The series stays continuous.
 - A different asset (a replacement or a redenomination, for example TON becoming GRAM if that is a different asset): add a new `id` and set the old one to `enabled: false`. Never repoint an existing `id` to another asset, because the history would mix two assets. The same rule protects against ticker reuse after a delisting.
 - A big step in price at the moment of a pair change is caught by the step check (ADR 0004 D4): rejected unless the cross-check agrees.
+
+### D8. A coin that is missing on some sources (2026-10-31)
+
+The owner's list has 27 coins and not every coin has a USD pair on every source (ADR 0002, update of 2026-10-31).
+
+- Rule: an enabled coin needs an id for at least one source in `settings.stored_sources`. A source with no id for the coin is not called for it. The source comparison on the page shows only the sources the coin has.
+- Primary source of a coin: the first stored source that has an id for it. It gives the live series of the page. ZIL has only Coin Metrics, so Coin Metrics is its primary source and its history starts with its first row.
+- Candle source of a coin (history and gap fill): Bitstamp when the coin has a market there, else Kraken, else none. Bitstamp gives 15-minute candles from 2024-01-01 (`tools/backfill-bitstamp.ts`). Kraken gives daily candles for about two years (`tools/backfill-kraken.ts`) and 15-minute candles for the gap fill (ADR 0005 D8).
+- A market that trades too rarely is left out of the config on purpose, so the candle source falls to Kraken. This was done for TRX, ATOM and ETC (a few Bitstamp candles a day, ATOM none since 2026-09-04). Their Bitstamp candles written before stay in `data` and are still shown.
+- Order for a new coin: run the backfills into a checkout of `data` first, push `data`, then merge the config. The first run after the merge fills the time between the last candle and now.
+- DOGE and LTC were set to `enabled: false` on 2026-10-31. Their history stays (D6).
 
 ## Consequences
 

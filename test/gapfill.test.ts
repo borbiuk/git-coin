@@ -5,11 +5,13 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import {
+	KRAKEN_LIMIT,
 	LIMIT,
 	MIN_GAP_SECONDS,
 	STEP_SECONDS,
 	candleRows,
 	fetchGapRows,
+	parseKrakenCandles,
 	planRequest,
 	readPending,
 	writePending,
@@ -101,7 +103,8 @@ test('candleRows uses the close time and the close price, and leaves out old, fu
 			candle('2026-10-30T12:00:00Z', '3'),
 		],
 		from,
-		NOW
+		NOW,
+		'bs-ohlc'
 	);
 	assert.deepEqual(rows, [
 		{
@@ -129,9 +132,15 @@ test('fetchGapRows asks one market for the gap and leaves a market with no gap a
 			{
 				coin: 'BTC',
 				market: 'btcusd',
+				src: 'bs-ohlc',
 				fromSec: Date.parse('2026-10-30T11:00:00Z') / 1000,
 			},
-			{ coin: 'ETH', market: 'ethusd', fromSec: NOW - 60 },
+			{
+				coin: 'ETH',
+				market: 'ethusd',
+				src: 'bs-ohlc',
+				fromSec: NOW - 60,
+			},
 		],
 		options([answer([candle('2026-10-30T11:15:00Z', '5')])], urls, logs)
 	);
@@ -150,7 +159,12 @@ test('fetchGapRows asks one market for the gap and leaves a market with no gap a
 test('fetchGapRows keeps a failed market open, goes on with the next and stops after a 429', async () => {
 	const from = Date.parse('2026-10-30T11:00:00Z') / 1000;
 	const targets = ['BTC', 'ETH', 'XRP', 'ADA'].map((coin) => {
-		return { coin, market: `${coin.toLowerCase()}usd`, fromSec: from };
+		return {
+			coin,
+			market: `${coin.toLowerCase()}usd`,
+			src: 'bs-ohlc' as const,
+			fromSec: from,
+		};
 	});
 	const urls: string[] = [];
 	const logs: string[] = [];
@@ -214,4 +228,90 @@ test('readPending ignores a file that is not the expected shape', async () => {
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
+});
+
+function krakenAnswer(): HttpResult {
+	const start = Date.parse('2026-10-30T11:15:00Z') / 1000;
+	return {
+		status: 200,
+		ms: 5,
+		json: {
+			error: [],
+			result: {
+				KSMUSD: [
+					[start, '1', '2', '0.5', '3.51', '3', '10', 4],
+					[start + 900, '1', '2', '0.5', '3.52', '3', '0.0', 0],
+				],
+				last: start,
+			},
+		},
+	};
+}
+
+test('parseKrakenCandles reads the close and the volume, and rejects an error or a bad shape', () => {
+	const candles = parseKrakenCandles(krakenAnswer().json);
+	assert.deepEqual(candles[0], {
+		start: Date.parse('2026-10-30T11:15:00Z') / 1000,
+		close: '3.51',
+		volume: '10',
+	});
+	assert.throws(
+		() => parseKrakenCandles({ error: ['EAPI:Rate limit exceeded'] }),
+		/Rate limit/
+	);
+	assert.throws(
+		() => parseKrakenCandles({ error: [], result: {} }),
+		/no candle list/
+	);
+	assert.throws(
+		() =>
+			parseKrakenCandles({
+				error: [],
+				result: { KSMUSD: [[1, '1', '1', '1', 'x', '1', '1', 1]] },
+			}),
+		/plain number/
+	);
+});
+
+test('planRequest takes the limit of the source', () => {
+	const plan = planRequest(NOW - 30 * 86_400, NOW, KRAKEN_LIMIT);
+	assert.equal(plan?.limit, KRAKEN_LIMIT);
+	const newest = Math.floor(NOW / STEP_SECONDS) * STEP_SECONDS;
+	assert.equal(plan?.startSec, newest - (KRAKEN_LIMIT - 1) * STEP_SECONDS);
+});
+
+test('fetchGapRows fills a Kraken market with kr-ohlc rows and stops at a rate limit in a 200 answer', async () => {
+	const urls: string[] = [];
+	const logs: string[] = [];
+	const from = Date.parse('2026-10-30T11:00:00Z') / 1000;
+	const result = await fetchGapRows(
+		[
+			{ coin: 'KSM', market: 'KSMUSD', src: 'kr-ohlc', fromSec: from },
+			{ coin: 'SC', market: 'SCUSD', src: 'kr-ohlc', fromSec: from },
+			{ coin: 'MINA', market: 'MINAUSD', src: 'kr-ohlc', fromSec: from },
+		],
+		options(
+			[
+				krakenAnswer(),
+				{
+					status: 200,
+					ms: 5,
+					json: { error: ['EAPI:Rate limit exceeded'] },
+				},
+			],
+			urls,
+			logs
+		)
+	);
+	assert.equal(urls.length, 2);
+	assert.match(
+		urls[0] ?? '',
+		/^https:\/\/api\.kraken\.com\/0\/public\/OHLC\?pair=KSMUSD&interval=15&since=\d+$/
+	);
+	// The candle with no trades is left out
+	assert.deepEqual(
+		result.rows.map((row) => [row.coin, row.ts, row.price, row.src]),
+		[['KSM', '2026-10-30T11:30:00Z', '3.51', 'kr-ohlc']]
+	);
+	assert.deepEqual(Object.keys(result.pending), ['SC', 'MINA']);
 });

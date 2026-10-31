@@ -4,7 +4,10 @@
 		"quote": "USD",
 		"stored_sources": ["kraken", "coinbase", "bitstamp", "coinmetrics"],
 		"phase": "test",
-		"features": { "alerts": false, "publish": true },
+		"features": {
+			"alerts": false,
+			"publish": true
+		},
 		"min_spacing_seconds": 300,
 		"max_step_move_percent": 50,
 		"crosscheck_max_diff_percent": 2,
@@ -43,8 +46,12 @@
 				"coingecko_id": "bitcoin"
 			},
 			"alerts": {
-				"move_1h": { "threshold_percent": 3 },
-				"move_24h": { "threshold_percent": 8 }
+				"move_1h": {
+					"threshold_percent": 3
+				},
+				"move_24h": {
+					"threshold_percent": 8
+				}
 			}
 		},
 		{
@@ -60,8 +67,12 @@
 				"coingecko_id": "ethereum"
 			},
 			"alerts": {
-				"move_1h": { "threshold_percent": 4 },
-				"move_24h": { "threshold_percent": 12 }
+				"move_1h": {
+					"threshold_percent": 4
+				},
+				"move_24h": {
+					"threshold_percent": 12
+				}
 			}
 		},
 		{
@@ -104,16 +115,174 @@
 			}
 		},
 		{
-			"id": "DOGE",
-			"name": "Dogecoin",
+			"id": "TRX",
+			"name": "TRON",
 			"enabled": true,
-			"added": "2026-10-29",
+			"added": "2026-10-31",
 			"sources": {
-				"kraken_pair": "XDGUSD",
-				"coinbase_product": "DOGE-USD",
-				"bitstamp_market": "dogeusd",
-				"coinmetrics_asset": "doge",
-				"coingecko_id": "dogecoin"
+				"kraken_pair": "TRXUSD",
+				"coinmetrics_asset": "trx",
+				"coingecko_id": "tron"
+			},
+			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
+		},
+		{
+			"id": "RUNE",
+			"name": "THORChain",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "RUNEUSD",
+				"coinmetrics_asset": "rune",
+				"coingecko_id": "thorchain"
+			}
+		},
+		{
+			"id": "DOT",
+			"name": "Polkadot",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "DOTUSD",
+				"coinbase_product": "DOT-USD",
+				"bitstamp_market": "dotusd",
+				"coinmetrics_asset": "dot",
+				"coingecko_id": "polkadot"
+			}
+		},
+		{
+			"id": "ATOM",
+			"name": "Cosmos",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "ATOMUSD",
+				"coinbase_product": "ATOM-USD",
+				"coinmetrics_asset": "atom",
+				"coingecko_id": "cosmos"
+			},
+			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
+		},
+		{
+			"id": "AVAX",
+			"name": "Avalanche",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "AVAXUSD",
+				"coinbase_product": "AVAX-USD",
+				"bitstamp_market": "avaxusd",
+				"coinmetrics_asset": "avax",
+				"coingecko_id": "avalanche-2"
+			}
+		},
+		{
+			"id": "ETC",
+			"name": "Ethereum Classic",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "ETCUSD",
+				"coinbase_product": "ETC-USD",
+				"coinmetrics_asset": "etc",
+				"coingecko_id": "ethereum-classic"
+			},
+			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
+		},
+		{
+			"id": "KSM",
+			"name": "Kusama",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "KSMUSD",
+				"coinbase_product": "KSM-USD",
+				"coinmetrics_asset": "ksm",
+				"coingecko_id": "kusama"
+			}
+		},
+		{
+			"id": "SC",
+			"name": "Siacoin",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "SCUSD",
+				"coinmetrics_asset": "sc",
+				"coingecko_id": "siacoin"
+			}
+		},
+		{
+			"id": "ICP",
+			"name": "Internet Computer",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "ICPUSD",
+				"coinbase_product": "ICP-USD",
+				"bitstamp_market": "icpusd",
+				"coinmetrics_asset": "icp",
+				"coingecko_id": "internet-computer"
+			}
+		},
+		{
+			"id": "EGLD",
+			"name": "MultiversX",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "EGLDUSD",
+				"coinbase_product": "EGLD-USD",
+				"coinmetrics_asset": "egld",
+				"coingecko_id": "elrond-erd-2"
+			}
+		},
+		{
+			"id": "CHZ",
+			"name": "Chiliz",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "CHZUSD",
+				"coinbase_product": "CHZ-USD",
+				"bitstamp_market": "chzusd",
+				"coinmetrics_asset": "chz",
+				"coingecko_id": "chiliz"
+			}
+		},
+		{
+			"id": "MINA",
+			"name": "Mina",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "MINAUSD",
+				"coinbase_product": "MINA-USD",
+				"coinmetrics_asset": "mina",
+				"coingecko_id": "mina-protocol"
+			}
+		},
+		{
+			"id": "ZIL",
+			"name": "Zilliqa",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"coinmetrics_asset": "zil",
+				"coingecko_id": "zilliqa"
+			}
+		},
+		{
+			"id": "NEAR",
+			"name": "NEAR Protocol",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "NEARUSD",
+				"coinbase_product": "NEAR-USD",
+				"bitstamp_market": "nearusd",
+				"coinmetrics_asset": "near",
+				"coingecko_id": "near"
 			}
 		},
 		{
@@ -130,16 +299,28 @@
 			}
 		},
 		{
-			"id": "ADA",
-			"name": "Cardano",
+			"id": "CAKE",
+			"name": "PancakeSwap",
 			"enabled": true,
-			"added": "2026-10-29",
+			"added": "2026-10-31",
 			"sources": {
-				"kraken_pair": "ADAUSD",
-				"coinbase_product": "ADA-USD",
-				"bitstamp_market": "adausd",
-				"coinmetrics_asset": "ada",
-				"coingecko_id": "cardano"
+				"kraken_pair": "CAKEUSD",
+				"coinbase_product": "CAKE-USD",
+				"coinmetrics_asset": "cake",
+				"coingecko_id": "pancakeswap-token"
+			}
+		},
+		{
+			"id": "UNI",
+			"name": "Uniswap",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "UNIUSD",
+				"coinbase_product": "UNI-USD",
+				"bitstamp_market": "uniusd",
+				"coinmetrics_asset": "uni",
+				"coingecko_id": "uniswap"
 			}
 		},
 		{
@@ -156,9 +337,75 @@
 			}
 		},
 		{
+			"id": "SUI",
+			"name": "Sui",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "SUIUSD",
+				"coinbase_product": "SUI-USD",
+				"bitstamp_market": "suiusd",
+				"coinmetrics_asset": "sui",
+				"coingecko_id": "sui"
+			}
+		},
+		{
+			"id": "CRV",
+			"name": "Curve DAO",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "CRVUSD",
+				"coinbase_product": "CRV-USD",
+				"bitstamp_market": "crvusd",
+				"coinmetrics_asset": "crv",
+				"coingecko_id": "curve-dao-token"
+			}
+		},
+		{
+			"id": "ADA",
+			"name": "Cardano",
+			"enabled": true,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "ADAUSD",
+				"coinbase_product": "ADA-USD",
+				"bitstamp_market": "adausd",
+				"coinmetrics_asset": "ada",
+				"coingecko_id": "cardano"
+			}
+		},
+		{
+			"id": "XTZ",
+			"name": "Tezos",
+			"enabled": true,
+			"added": "2026-10-31",
+			"sources": {
+				"kraken_pair": "XTZUSD",
+				"coinbase_product": "XTZ-USD",
+				"bitstamp_market": "xtzusd",
+				"coinmetrics_asset": "xtz",
+				"coingecko_id": "tezos"
+			}
+		},
+		{
+			"id": "DOGE",
+			"name": "Dogecoin",
+			"enabled": false,
+			"added": "2026-10-29",
+			"sources": {
+				"kraken_pair": "XDGUSD",
+				"coinbase_product": "DOGE-USD",
+				"bitstamp_market": "dogeusd",
+				"coinmetrics_asset": "doge",
+				"coingecko_id": "dogecoin"
+			},
+			"note": "Disabled on 2026-10-31 when the coin list changed. The history stays."
+		},
+		{
 			"id": "LTC",
 			"name": "Litecoin",
-			"enabled": true,
+			"enabled": false,
 			"added": "2026-10-29",
 			"sources": {
 				"kraken_pair": "LTCUSD",
@@ -166,7 +413,8 @@
 				"bitstamp_market": "ltcusd",
 				"coinmetrics_asset": "ltc",
 				"coingecko_id": "litecoin"
-			}
+			},
+			"note": "Disabled on 2026-10-31 when the coin list changed. The history stays."
 		},
 		{
 			"id": "USDT",
@@ -181,7 +429,9 @@
 				"coinmetrics_asset": "usdt",
 				"coingecko_id": "tether"
 			},
-			"alerts": { "enabled": false },
+			"alerts": {
+				"enabled": false
+			},
 			"note": "Not a coin on the dashboard. Its USD price is the rate that turns the other prices into USDT."
 		}
 	]

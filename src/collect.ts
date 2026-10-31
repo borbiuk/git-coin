@@ -13,7 +13,12 @@ import {
 	syncNoDataIssue,
 } from './alerts/index.ts';
 import type { IssueClient } from './alerts/index.ts';
-import { ConfigError, enabledCoins, loadConfig } from './config.ts';
+import {
+	candleSource,
+	ConfigError,
+	enabledCoins,
+	loadConfig,
+} from './config.ts';
 import { appendRequestLog, appendRows, readLastRow } from './csv.ts';
 import { fetchGapRows, readPending, writePending } from './gapfill.ts';
 import type { GapResult, GapTarget } from './gapfill.ts';
@@ -70,7 +75,7 @@ export interface CollectDeps {
 	dashboardUrl: string;
 	/** The checkout of `main`. `null` turns the keepalive step off. */
 	keepalive: { mainDir: string; maxAgeDays: number } | null;
-	/** Fills the time of missed runs with Bitstamp candles (ADR 0005 D8). `null` turns it off. */
+	/** Fills the time of missed runs with Bitstamp or Kraken candles (ADR 0005 D8). `null` turns it off. */
 	gapFill: { pauseMs: number } | null;
 	log: (line: string) => void;
 }
@@ -395,9 +400,9 @@ async function noDataStep(
 }
 
 /**
- * The candle rows for the missing time of every coin that has a Bitstamp market. The missing time starts
+ * The candle rows for the missing time of every coin that has a candle source (Bitstamp, else Kraken). The missing time starts
  * at an open gap of an earlier run, else at the newest stored row. Reads the data files and calls
- * Bitstamp, never writes. A failure gives fewer rows and an open gap, never an error. `null`: off.
+ * the candle source, never writes. A failure gives fewer rows and an open gap, never an error. `null`: off.
  */
 async function gapStep(
 	deps: CollectDeps,
@@ -413,11 +418,12 @@ async function gapStep(
 		const codes = [
 			...deps.config.settings.stored_sources.map((id) => SRC_CODE[id]),
 			'bs-ohlc' as const,
+			'kr-ohlc' as const,
 		];
 		const targets: GapTarget[] = [];
 		for (const coin of deps.config.coins) {
-			const market = coin.sources.bitstamp_market;
-			if (!coin.enabled || market === undefined) {
+			const candles = candleSource(coin);
+			if (!coin.enabled || candles === null) {
 				continue;
 			}
 			let fromSec: number | null = null;
@@ -440,7 +446,12 @@ async function gapStep(
 				}
 			}
 			if (fromSec !== null) {
-				targets.push({ coin: coin.id, market, fromSec });
+				targets.push({
+					coin: coin.id,
+					market: candles.market,
+					src: candles.src,
+					fromSec,
+				});
 			}
 		}
 		return await fetchGapRows(targets, {

@@ -3,7 +3,7 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { loadConfig } from './config.ts';
+import { hasSource, loadConfig, primarySource } from './config.ts';
 import { createSeriesReader } from './series.ts';
 import {
 	NINETY_DAYS_SECONDS,
@@ -25,10 +25,13 @@ import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
 import { isoSeconds, parseIso } from './time.ts';
 import { SRC_CODE } from './types.ts';
-import type { Config, DerivedLatest, SeriesPoints, SrcCode } from './types.ts';
-
-/** Backfilled rows that fill the time before the first live row (tools/backfill-bitstamp.ts). */
-const HISTORY_SRC: SrcCode = 'bs-ohlc';
+import type {
+	CoinConfig,
+	Config,
+	DerivedLatest,
+	SeriesPoints,
+	SrcCode,
+} from './types.ts';
 
 const SAFE_COIN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
@@ -60,7 +63,12 @@ export async function buildSite(opts: {
 	if (primary === undefined) {
 		throw new Error('settings.stored_sources is empty.');
 	}
-	const src = SRC_CODE[primary];
+	// The default source. A coin that is missing on it uses the first stored source that has the coin.
+	const defaultSrc = SRC_CODE[primary];
+	const srcOf = (coin: CoinConfig): SrcCode => {
+		const own = primarySource(config, coin);
+		return own === null ? defaultSrc : SRC_CODE[own];
+	};
 	const generatedAt = isoSeconds(now);
 	const nowSec = Math.floor(now.getTime() / 1000);
 
@@ -75,21 +83,31 @@ export async function buildSite(opts: {
 	const latest: DerivedLatest = {
 		generated_at: generatedAt,
 		quote: rateCoin?.id ?? 'USD',
-		src,
+		src: defaultSrc,
 		coins: {},
 	};
 	// The history and the live rows of one entry, joined in time order. `until` is where the live rows begin.
 	// `filled` is the time of missed runs that the collector filled with candles.
 	let historyUntil = null as string | null;
+	let historySrc: SrcCode | null = null;
 	async function readJoined(
-		id: string
+		coin: CoinConfig
 	): Promise<{ samples: Sample[]; filled: Span[] }> {
 		if (firstDay === null) {
 			return { samples: [], filled: [] };
 		}
 		const from = `${firstDay}T00:00:00Z`;
-		const live = await loadSamples(reader, id, from, now, src);
-		const history = await loadSamples(reader, id, from, now, HISTORY_SRC);
+		const live = await loadSamples(reader, coin.id, from, now, srcOf(coin));
+		// A coin can have Kraken daily closes before its Bitstamp candles start (ADR 0007 D8)
+		const bitstamp = await loadSamples(
+			reader,
+			coin.id,
+			from,
+			now,
+			'bs-ohlc'
+		);
+		const kraken = await loadSamples(reader, coin.id, from, now, 'kr-ohlc');
+		const history = [...bitstamp, ...kraken].sort((a, b) => a.t - b.t);
 		const joined = joinHistory(history, live);
 		const until = live[0]?.ts ?? history[history.length - 1]?.ts;
 		if (joined.samples.length > live.length && until !== undefined) {
@@ -97,11 +115,17 @@ export async function buildSite(opts: {
 				historyUntil === null || until < historyUntil
 					? until
 					: historyUntil;
+			// The note names the Bitstamp candles when any coin has them: most coins do
+			if (bitstamp.length > 0) {
+				historySrc = 'bs-ohlc';
+			} else if (historySrc === null) {
+				historySrc = 'kr-ohlc';
+			}
 		}
 		return joined;
 	}
 	const rates =
-		rateCoin === undefined ? [] : (await readJoined(rateCoin.id)).samples;
+		rateCoin === undefined ? [] : (await readJoined(rateCoin)).samples;
 
 	for (const coin of config.coins) {
 		if (!SAFE_COIN_ID.test(coin.id)) {
@@ -110,7 +134,7 @@ export async function buildSite(opts: {
 		if (coin.role === 'rate') {
 			continue;
 		}
-		const { samples: loaded, filled } = await readJoined(coin.id);
+		const { samples: loaded, filled } = await readJoined(coin);
 		const samples =
 			rateCoin === undefined ? loaded : convertSamples(loaded, rates);
 		// A disabled coin with no rows has nothing to show; a disabled coin with rows stays as an archive
@@ -118,6 +142,7 @@ export async function buildSite(opts: {
 			continue;
 		}
 
+		const src = srcOf(coin);
 		const last = samples[samples.length - 1];
 		if (last !== undefined) {
 			latest.coins[coin.id] = {
@@ -145,6 +170,9 @@ export async function buildSite(opts: {
 			const bySource = [];
 			for (const id of config.settings.stored_sources) {
 				const code = SRC_CODE[id];
+				if (!hasSource(coin, id)) {
+					continue;
+				}
 				// The other sources are converted with the same (primary) rate, so the lines differ only by the source
 				const others =
 					code === src
@@ -184,8 +212,8 @@ export async function buildSite(opts: {
 		);
 	}
 
-	if (historyUntil !== null) {
-		latest.history = { src: HISTORY_SRC, until: historyUntil };
+	if (historyUntil !== null && historySrc !== null) {
+		latest.history = { src: historySrc, until: historyUntil };
 	}
 	await writeJson(join(outDir, 'latest.json'), latest);
 	await writeJson(

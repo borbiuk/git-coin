@@ -46,8 +46,8 @@ Z-score rule (absolute 5-minute return divided by the standard deviation of the 
 
 - Content-creating REST requests are limited to 80 per minute and 500 per hour. `GITHUB_TOKEN` has 1,000 requests per hour per repo. We make a handful per day.
 - Events made with `GITHUB_TOKEN` do not start other workflows.
-- The owner automatically watches repos they own. Notification triggers include being assigned and being @mentioned. Email delivery depends on the owner's notification settings. There is also a setting for "your own updates". A bot-created Issue is not the owner's own update. The docs do not say whether a bot-created Issue emails a watching owner with no mention and no assignee. UNVERIFIED. Needs a test.
-- Failed-run emails for scheduled workflows go to the user who last edited the cron line. A run that never starts creates no email.
+- The owner automatically watches repos they own. Notification triggers include being assigned and being @mentioned. Email delivery depends on the owner's notification settings. There is also a setting for "your own updates". A bot-created Issue is not the owner's own update. The docs do not say whether a bot-created Issue emails a watching owner with no mention and no assignee. Tested on 2026-10-29 (`docs/implementation/g2-results.md`, item 5): an Issue created with `GITHUB_TOKEN` emailed the owner when it had a mention (same minute) or an assignee (same minute, two emails). A plain Issue sent no email.
+- Failed-run emails for scheduled workflows go to the user who last edited the cron line. A run that never starts creates no email. Tested: six scheduled failures between 2026-10-29 and 2026-10-31 all emailed `borbiuk`, who last edited the cron line, within 7 minutes of the run being created.
 
 ## Considered Options
 
@@ -147,7 +147,7 @@ See ADR 0005 D6. In short: the dashboard banner (delayed after 120 minutes, stop
 - Good: no secrets.
 - Bad: alerts need a run, and runs can be hours late. Do not use these alerts for trading decisions.
 - Bad: a fast spike and reversal inside one gap, or between samples, is invisible.
-- Bad: the email path is unproven. If it fails, the alert design needs a second channel.
+- Bad: the email works only with a mention or an assignee (a plain Issue sends none), and each variant was tested once. The alert step must always set both.
 - Bad: thresholds for six coins are blind guesses.
 
 ## Sources (access date for all: 2026-10-29)
@@ -166,8 +166,8 @@ See ADR 0005 D6. In short: the dashboard banner (delayed after 120 minutes, stop
 
 ## Open Questions
 
-1. Does an Issue created by `GITHUB_TOKEN` email the owner? Test three variants: plain; with `@borbiuk`; with an assignee and a mention. Check both "Watching" and "Participating" email settings. Measure the delay. (Checklist, blocking.)
-2. Do failed scheduled runs email the right user, and who is it after the cron line is edited by the owner?
+1. Does an Issue created by `GITHUB_TOKEN` email the owner? Test three variants: plain; with `@borbiuk`; with an assignee and a mention. Check both "Watching" and "Participating" email settings. Measure the delay. (Checklist, blocking.) Answered on 2026-10-29: plain no; mention yes; assignee and mention yes, all in the same minute (`docs/implementation/g2-results.md`, item 5).
+2. Do failed scheduled runs email the right user, and who is it after the cron line is edited by the owner? Answered on 2026-10-31: yes, `borbiuk`, who last edited the cron line. Not tested: a cron line last edited by another user.
 3. Are the default thresholds right for the six unmeasured coins? Tune after 2 to 4 weeks.
-4. If the email test fails, which second channel (ntfy or Telegram)? This needs a secret and an owner decision.
+4. If the email test fails, which second channel (ntfy or Telegram)? This needs a secret and an owner decision. Not needed now: the email test passed for the shape the alerts use (question 1).
 5. Should alerts for moves during a long gap be reported when the collector resumes? Current answer: no.

@@ -3,6 +3,7 @@
 import {
 	BASES,
 	COMPARE_STYLES,
+	COIN_COLOURS,
 	MAX_COMPARE_LINES,
 	RANGES,
 	alertSummary,
@@ -1335,7 +1336,8 @@ async function loadMulti() {
 	}
 	$('multi').hidden = false;
 	if (app.multi.selected === null) {
-		app.multi.selected = new Set(ids.slice(0, MAX_COMPARE_LINES));
+		// The first coins get ten different colours. "Show all" adds the rest, and the colours repeat.
+		app.multi.selected = new Set(ids.slice(0, COIN_COLOURS));
 	}
 	const { range, base } = app.multi;
 	$('multi-note').textContent = 'Loading the comparison…';
