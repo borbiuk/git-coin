@@ -2,7 +2,17 @@
 // Types and constants only: no logic. Changes go through the orchestrator.
 
 export type SourceId = 'kraken' | 'coinbase' | 'bitstamp' | 'coinmetrics';
-export type SrcCode = 'kr' | 'cb' | 'bs' | 'cm' | 'kr-ohlc' | 'bs-ohlc';
+/** `*-ohlc` rows are candle closes: `kr-ohlc` Kraken, `bs-ohlc` Bitstamp, `cb-ohlc` Coinbase, `kt-ohlc` Kraken built from trades, `ok-ohlc` OKX (quoted in USDT). */
+export type SrcCode =
+	| 'kr'
+	| 'cb'
+	| 'bs'
+	| 'cm'
+	| 'kr-ohlc'
+	| 'bs-ohlc'
+	| 'cb-ohlc'
+	| 'kt-ohlc'
+	| 'ok-ohlc';
 export const SRC_CODE = {
 	kraken: 'kr',
 	coinbase: 'cb',
@@ -20,6 +30,8 @@ export interface CoinSources {
 	coinbase_product?: string;
 	bitstamp_market?: string;
 	coinmetrics_asset?: string;
+	/** OKX market for the backfill only, for example `ZIL-USDT`. It is not a stored source. */
+	okx_market?: string;
 	coingecko_id?: string;
 }
 export interface AlertParams {
@@ -45,6 +57,35 @@ export interface AlertDefaults {
 	move_1h: AlertParams;
 	move_24h: AlertParams;
 }
+export type AssetType = 'native' | 'token' | 'stablecoin';
+export type Consensus = 'pow' | 'pos' | 'dpos' | 'other';
+export type CoinCategory =
+	| 'layer1'
+	| 'store_of_value'
+	| 'payments'
+	| 'defi'
+	| 'oracle'
+	| 'exchange_token'
+	| 'storage'
+	| 'stablecoin'
+	| 'meme';
+/** Facts about a coin that never change or change rarely (ADR 0007 D9). The owner edits them by hand. */
+export interface CoinProfile {
+	/** The year the asset first went live on a public network. */
+	launched: number;
+	asset_type: AssetType;
+	category: CoinCategory;
+	/** The network a token lives on, in lower case (`ethereum`). Required for `token`, not allowed for the other types. */
+	platform?: string;
+	/** Required for `native`, not allowed for the other types (a token uses the consensus of its platform). */
+	consensus?: Consensus;
+	/** The network itself runs general-purpose smart contracts. Required for `native`, not allowed for the other types. */
+	smart_contracts?: boolean;
+	/** The hard cap in coins. Missing: the protocol has no hard cap. */
+	max_supply?: number;
+	/** Tickers the asset had before a rename. */
+	previous_ids?: string[];
+}
 export interface CoinConfig {
 	id: string;
 	name: string;
@@ -53,6 +94,7 @@ export interface CoinConfig {
 	enabled: boolean;
 	added: string;
 	sources: CoinSources;
+	profile?: CoinProfile;
 	alerts?: AlertOverrides;
 	note?: string;
 }

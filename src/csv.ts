@@ -15,6 +15,9 @@ const SRC_CODES = new Set<string>([
 	...Object.values(SRC_CODE),
 	'kr-ohlc',
 	'bs-ohlc',
+	'cb-ohlc',
+	'kt-ohlc',
+	'ok-ohlc',
 ]);
 
 function isNotFound(error: unknown): boolean {

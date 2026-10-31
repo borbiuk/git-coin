@@ -41,6 +41,15 @@
 				"coinbase_product": "AAA-USD",
 				"coingecko_id": "alpha"
 			},
+			"profile": {
+				"launched": 2015,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 21000000,
+				"previous_ids": ["ALP"]
+			},
 			"alerts": {
 				"direction": "down",
 				"move_1h": { "threshold_percent": 3 }
@@ -55,6 +64,12 @@
 			"sources": {
 				"kraken_pair": "BBBUSD",
 				"bitstamp_market": "bbbusd"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "alpha-chain"
 			}
 		},
 		{

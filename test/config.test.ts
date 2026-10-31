@@ -195,6 +195,22 @@ describe('config', () => {
 		});
 		assert.equal(config.coins[0].note, 'Synthetic coin for tests');
 		assert.equal(config.coins[1].alerts, undefined);
+		assert.deepEqual(config.coins[0].profile, {
+			launched: 2015,
+			asset_type: 'native',
+			category: 'layer1',
+			consensus: 'pos',
+			smart_contracts: true,
+			max_supply: 21000000,
+			previous_ids: ['ALP'],
+		});
+		assert.deepEqual(config.coins[1].profile, {
+			launched: 2020,
+			asset_type: 'token',
+			category: 'defi',
+			platform: 'alpha-chain',
+		});
+		assert.equal(config.coins[2].profile, undefined);
 		assert.ok(schemaAccepts(valid));
 	});
 
@@ -233,6 +249,7 @@ describe('config', () => {
 		const zil = config.coins.find((coin) => coin.id === 'ZIL');
 		assert.deepEqual(Object.keys(zil?.sources ?? {}), [
 			'coinmetrics_asset',
+			'okx_market',
 			'coingecko_id',
 		]);
 		assert.equal(primarySource(config, zil as CoinConfig), 'coinmetrics');
@@ -254,6 +271,38 @@ describe('config', () => {
 		assert.deepEqual(usdt?.alerts, { enabled: false });
 		assert.equal(usdt?.sources.kraken_pair, 'USDTUSD');
 		assert.equal(btc.role, undefined);
+	});
+
+	test('every coin of the real config has a profile', async () => {
+		const config = await loadConfig(fileURLToPath(REAL));
+		const profile = (id: string) =>
+			config.coins.find((coin) => coin.id === id)?.profile;
+		for (const coin of config.coins) {
+			assert.ok(coin.profile !== undefined, `${coin.id} has no profile`);
+		}
+		assert.deepEqual(profile('BTC'), {
+			launched: 2009,
+			asset_type: 'native',
+			category: 'store_of_value',
+			consensus: 'pow',
+			smart_contracts: false,
+			max_supply: 21000000,
+		});
+		// A token names its platform and has no consensus of its own
+		assert.deepEqual(profile('UNI'), {
+			launched: 2020,
+			asset_type: 'token',
+			category: 'defi',
+			platform: 'ethereum',
+		});
+		assert.equal(profile('USDT')?.asset_type, 'stablecoin');
+		assert.equal(profile('ETH')?.max_supply, undefined);
+		assert.deepEqual(
+			config.coins
+				.filter((coin) => coin.profile?.asset_type === 'token')
+				.map((coin) => coin.id),
+			['LINK', 'CAKE', 'UNI', 'CRV']
+		);
 	});
 
 	test('the primary source and the candle source follow the ids a coin has', async () => {
@@ -590,6 +639,90 @@ describe('config', () => {
 			value: 90,
 			message: /ref_tolerance_minutes must be less/,
 			schema: false,
+		},
+		{
+			name: 'unknown key in a profile',
+			path: ['coins', 0, 'profile', 'color'],
+			value: 'red',
+			message: /unknown key "color"/,
+			schema: true,
+		},
+		{
+			name: 'asset type that is not known',
+			path: ['coins', 0, 'profile', 'asset_type'],
+			value: 'coin',
+			message: /asset_type.*must be one of/,
+			schema: true,
+		},
+		{
+			name: 'launch year before Bitcoin',
+			path: ['coins', 0, 'profile', 'launched'],
+			value: 2008,
+			message: /launched.*at least 2009/,
+			schema: true,
+		},
+		{
+			name: 'max supply of zero',
+			path: ['coins', 0, 'profile', 'max_supply'],
+			value: 0,
+			message: /max_supply.*greater than 0/,
+			schema: true,
+		},
+		{
+			name: 'platform in the wrong format',
+			path: ['coins', 1, 'profile', 'platform'],
+			value: 'Ethereum',
+			message: /platform.*invalid format/,
+			schema: true,
+		},
+		{
+			name: 'token without a platform',
+			path: ['coins', 1, 'profile', 'platform'],
+			value: undefined,
+			message: /missing key "platform"/,
+			schema: false,
+		},
+		{
+			name: 'native coin with a platform',
+			path: ['coins', 0, 'profile', 'platform'],
+			value: 'ethereum',
+			message: /platform.*only allowed for a token/,
+			schema: false,
+		},
+		{
+			name: 'native coin without a consensus',
+			path: ['coins', 0, 'profile', 'consensus'],
+			value: undefined,
+			message: /missing key "consensus"/,
+			schema: false,
+		},
+		{
+			name: 'token with a consensus',
+			path: ['coins', 1, 'profile', 'consensus'],
+			value: 'pow',
+			message: /consensus.*only allowed for a native coin/,
+			schema: false,
+		},
+		{
+			name: 'token with smart_contracts',
+			path: ['coins', 1, 'profile', 'smart_contracts'],
+			value: false,
+			message: /smart_contracts.*only allowed for a native coin/,
+			schema: false,
+		},
+		{
+			name: 'previous ids with the current id',
+			path: ['coins', 0, 'profile', 'previous_ids'],
+			value: ['AAA'],
+			message: /must not hold the current id/,
+			schema: false,
+		},
+		{
+			name: 'previous ids that repeat',
+			path: ['coins', 0, 'profile', 'previous_ids'],
+			value: ['ALP', 'ALP'],
+			message: /must not repeat a ticker/,
+			schema: true,
 		},
 	];
 

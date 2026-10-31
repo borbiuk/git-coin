@@ -175,15 +175,11 @@ test('staleBanner has text for delayed, stopped and unknown only', () => {
 	);
 });
 
-test('historyNote names the source and the time where the older prices end', () => {
+test('historyNote says where the older prices end and where they come from', () => {
 	const now = Date.parse('2026-10-30T10:00:00Z');
-	assert.equal(
+	assert.match(
 		lib.historyNote({ src: 'bs-ohlc', until: '2026-10-29T20:46:24Z' }, now),
-		'Prices before 29 Oct 20:46 UTC are 15-minute candle closes from Bitstamp. A few coins have only daily closes from Kraken, or no earlier prices.'
-	);
-	assert.equal(
-		lib.historyNote({ src: 'kr-ohlc', until: '2026-10-29T20:46:24Z' }, now),
-		'Prices before 29 Oct 20:46 UTC are candle closes from Kraken.'
+		/^Prices before 29 Oct 20:46 UTC are candle closes from the exchanges .*every 15 minutes/
 	);
 	assert.equal(lib.historyNote(undefined, now), '');
 	assert.equal(lib.historyNote({ src: 'bs-ohlc' }, now), '');
@@ -195,6 +191,9 @@ test('sourceInfo names the source and links it', () => {
 	assert.equal(lib.sourceInfo('cb').name, 'Coinbase');
 	assert.equal(lib.sourceInfo('bs').name, 'Bitstamp');
 	assert.equal(lib.sourceInfo('bs-ohlc').name, 'Bitstamp');
+	assert.equal(lib.sourceInfo('cb-ohlc').name, 'Coinbase');
+	assert.equal(lib.sourceInfo('kt-ohlc').name, 'Kraken');
+	assert.equal(lib.sourceInfo('ok-ohlc').name, 'OKX');
 	assert.equal(lib.sourceInfo('cm').name, 'Coin Metrics');
 	for (const src of ['kr', 'cb', 'bs', 'cm']) {
 		assert.match(lib.sourceInfo(src).url, /^https:\/\//);

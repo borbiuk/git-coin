@@ -16,13 +16,13 @@ paths:
 | `CLAUDE.md`             | Always loaded: imports `AGENTS.md` (`@AGENTS.md`) and adds Claude-specific working rules. Keep short. |
 | `AGENTS.md`             | Tool-agnostic orientation for humans and AI contributors (architecture, constraints, commands).       |
 | `.claude/rules/`        | Topical rules. Every rule has `paths` frontmatter, so it loads only when matching files are touched.  |
-| `.claude/settings.json` | Shared permissions (allow, ask, deny). Personal overrides go to the gitignored `settings.local.json`. |
+| `.claude/settings.json` | Permissions (allow, ask, deny) of the owner's machine. Gitignored, like `settings.local.json`.        |
 
 ## Rules of thumb
 
 - A new rule needs `paths` frontmatter; only `CLAUDE.md` and `AGENTS.md` are always loaded.
 - Write what Claude cannot derive from the code; link to real files instead of copying them. Do not repeat the same fact in several files.
-- Requirements that can be enforced (blocked commands, formatting, checks) belong in `.claude/settings.json`, hooks, scripts or CI, not only in prose.
+- Requirements that can be enforced (blocked commands, formatting, checks) belong in the local `.claude/settings.json`, hooks, scripts or CI, not only in prose.
 - Remove outdated guidance promptly; stale rules are worse than no rules.
 
 ## Keeping things in sync

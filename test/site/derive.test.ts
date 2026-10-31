@@ -12,6 +12,7 @@ import {
 	recentPoints,
 	toSamples,
 	joinHistory,
+	mergeHistory,
 } from '../../src/site/derive.ts';
 import type { Sample } from '../../src/site/derive.ts';
 import type { PricePoint, SeriesReader } from '../../src/types.ts';
@@ -376,4 +377,64 @@ test('clipSpans drops the spans before the start and cuts the one that crosses i
 			[60, 70],
 		]
 	);
+});
+
+test('mergeHistory keeps a sample of a later list only when no earlier sample is within five minutes', () => {
+	const coinbase = [
+		sample('2026-10-01T00:15:00Z', 10),
+		sample('2026-10-01T01:00:00Z', 11),
+	];
+	const bitstamp = [
+		// the same candle as the first Coinbase sample
+		sample('2026-10-01T00:15:00Z', 10.1),
+		sample('2026-10-01T00:30:00Z', 10.5),
+		// 4 minutes from the second Coinbase sample
+		sample('2026-10-01T01:04:00Z', 11.1),
+	];
+	const daily = [
+		sample('2026-09-30T00:00:00Z', 9),
+		// the price at midnight is 15 minutes from the next close, so it stays
+		sample('2026-10-01T00:00:00Z', 9.9),
+		sample('2026-10-02T00:00:00Z', 12),
+	];
+	assert.deepEqual(
+		mergeHistory([coinbase, bitstamp, daily]).map((item) => item.p),
+		[9, 9.9, 10, 10.5, 11, 12]
+	);
+	assert.deepEqual(mergeHistory([[], []]), []);
+});
+
+test('convertSamples leaves a price that is already in USDT as it is', () => {
+	const rates = [sample('2026-10-01T00:00:00Z', 0.5)];
+	const usdt: Sample = { ...sample('2026-10-01T00:15:00Z', 3), usdt: true };
+	const usd = sample('2026-10-01T00:30:00Z', 1);
+	assert.deepEqual(
+		convertSamples([usdt, usd], rates).map((item) => item.p),
+		[3, 2]
+	);
+});
+
+test('loadSamples marks OKX rows as USDT prices', async () => {
+	const reader: SeriesReader = {
+		async readSeries() {
+			return [point('2026-10-01T00:15:00Z', '0.002')];
+		},
+	};
+	const now = new Date('2026-10-02T00:00:00Z');
+	const ok = await loadSamples(
+		reader,
+		'ZIL',
+		'2026-10-01T00:00:00Z',
+		now,
+		'ok-ohlc'
+	);
+	assert.equal(ok[0]?.usdt, true);
+	const kr = await loadSamples(
+		reader,
+		'ZIL',
+		'2026-10-01T00:00:00Z',
+		now,
+		'kr-ohlc'
+	);
+	assert.equal(kr[0]?.usdt, undefined);
 });

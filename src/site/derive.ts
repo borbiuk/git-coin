@@ -15,6 +15,8 @@ export interface Sample {
 	t: number;
 	p: number;
 	ts: string;
+	/** The price is already in USDT (OKX candles), so the rate does not apply to it. */
+	usdt?: boolean;
 }
 
 export const PERIODS = {
@@ -47,6 +49,34 @@ export function toSamples(points: PricePoint[]): Sample[] {
 
 /** A candle this close to a live sample is left out, so the two never show the same moment twice. */
 export const DUPLICATE_SECONDS = 300;
+
+/**
+ * The history of several sources in one time order. `lists` is in order of priority: a sample of a later
+ * list is left out when an earlier list has a sample within `DUPLICATE_SECONDS`, so the same candle of two
+ * exchanges, or a daily close next to the 15-minute closes, is shown once. Every list is in time order.
+ */
+export function mergeHistory(lists: Sample[][]): Sample[] {
+	let accepted: Sample[] = [];
+	for (const list of lists) {
+		const extra: Sample[] = [];
+		let next = 0;
+		for (const sample of list) {
+			while (
+				next < accepted.length &&
+				(accepted[next]?.t ?? 0) < sample.t - DUPLICATE_SECONDS
+			) {
+				next += 1;
+			}
+			const near = accepted[next];
+			if (near !== undefined && near.t - sample.t <= DUPLICATE_SECONDS) {
+				continue;
+			}
+			extra.push(sample);
+		}
+		accepted = [...accepted, ...extra].sort((a, b) => a.t - b.t);
+	}
+	return accepted;
+}
 
 /** A time span in epoch seconds, from the last live sample before a gap to the first one after it. */
 export type Span = [number, number];
@@ -130,6 +160,10 @@ export function convertSamples(samples: Sample[], rates: Sample[]): Sample[] {
 	const out: Sample[] = [];
 	let next = 0;
 	for (const sample of samples) {
+		if (sample.usdt === true) {
+			out.push({ t: sample.t, ts: sample.ts, p: sample.p });
+			continue;
+		}
 		while (next < usable.length && (usable[next]?.t ?? 0) <= sample.t) {
 			next += 1;
 		}
@@ -166,7 +200,12 @@ export async function loadSamples(
 	src: SrcCode
 ): Promise<Sample[]> {
 	const toIso = isoSeconds(new Date(now.getTime() + 1000));
-	return toSamples(await reader.readSeries(coin, fromIso, toIso, src));
+	const samples = toSamples(
+		await reader.readSeries(coin, fromIso, toIso, src)
+	);
+	return src === 'ok-ohlc'
+		? samples.map((sample) => ({ ...sample, usdt: true }))
+		: samples;
 }
 
 export function emptyPoints(coin: string, src: SrcCode): SeriesPoints {

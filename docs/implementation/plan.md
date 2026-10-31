@@ -40,7 +40,7 @@ Start order inside P1: spawn A14 first, because the owner can start the 72-hour 
 
 - Node.js 24.22.1 (ADR 0003). The machine default is Node 26.12.1, so every npm command and every commit runs through `./scripts/with-node24.sh` (it uses `npx -p node@24.22.1`; checked on this machine, no global install). `package.json` has `"engines": {"node": ">=24.22.1 <25"}` and `.npmrc` has `engine-strict=true`.
 - `package.json`: `"type": "module"`, no runtime dependencies, exact dev dependency versions only (`save-exact`, `scripts/check-versions.mjs`): `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-config-prettier`, `eslint-plugin-import-x`, `globals`, `prettier`, `knip`, `markdownlint-cli2`, `husky`, `@types/node` (Node 24 line), `typescript` (alias of the TypeScript 6 compat package, needed by `typescript-eslint`) and `typescript7` (alias of `typescript` 7.0.2, the type checker).
-- Scripts: `format` and `format:check` (Prettier), `lint` (ESLint and the type check), `lint:docs` (markdownlint and relative links), `lint:unused` (knip), `check:versions`, `test` (`node --test "test/**/*.test.ts"`), and `check`, which runs all of them in order. `npm run check` is the gate of every agent. The test runner stays `node:test` (ADR 0003). Hyperfriend's Playwright setup is not used.
+- Scripts: `format` and `format:check` (Prettier), `lint` (ESLint and the type check), `lint:docs` (markdownlint and relative links), `lint:unused` (knip), `check:versions`, `test` (`node --test "test/**/*.test.ts"`), and `check`, which runs all of them in order. `npm run check` is the gate of every agent. `site:preview` is outside `check`: it builds `out/` from a checkout of the `data` branch and serves it on localhost (`scripts/site-preview.mjs`). The test runner stays `node:test` (ADR 0003). Hyperfriend's Playwright setup is not used.
 - Format: Prettier with tabs, width 4, single quotes, `es5` trailing commas, LF. `.editorconfig` matches. ESLint: `curly: all` (block `if`, no one-line `if`), single quotes, semicolons, import order with blank lines between groups and alphabetical order inside a group, and type-aware `no-floating-promises` and `no-misused-promises` in `src`, `tools` and `test`.
 - Config files (`eslint.config.mjs`, `knip.jsonc`, `.prettierrc.json`, `.markdownlint-cli2.jsonc`, `tsconfig.json`) belong to the orchestrator. An agent that needs a change asks for it in its report.
 - `tsconfig.json`: `strict`, `noEmit`, `nodenext`, `allowImportingTsExtensions`, `erasableSyntaxOnly`, `verbatimModuleSyntax`. It includes `src`, `tools` and `test`. The `site/` JavaScript is linted with browser globals and is not type-checked.
@@ -100,6 +100,7 @@ export interface CoinConfig {
 	enabled: boolean;
 	added: string;
 	sources: CoinSources;
+	profile?: CoinProfile; // ADR 0007 D9, defined in src/types.ts
 	alerts?: AlertOverrides;
 	note?: string;
 }

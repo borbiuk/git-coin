@@ -45,6 +45,14 @@
 				"coinmetrics_asset": "btc",
 				"coingecko_id": "bitcoin"
 			},
+			"profile": {
+				"launched": 2009,
+				"asset_type": "native",
+				"category": "store_of_value",
+				"consensus": "pow",
+				"smart_contracts": false,
+				"max_supply": 21000000
+			},
 			"alerts": {
 				"move_1h": {
 					"threshold_percent": 3
@@ -66,6 +74,13 @@
 				"coinmetrics_asset": "eth",
 				"coingecko_id": "ethereum"
 			},
+			"profile": {
+				"launched": 2015,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
+			},
 			"alerts": {
 				"move_1h": {
 					"threshold_percent": 4
@@ -86,6 +101,14 @@
 				"bitstamp_market": "bnbusd",
 				"coinmetrics_asset": "bnb",
 				"coingecko_id": "binancecoin"
+			},
+			"profile": {
+				"launched": 2017,
+				"asset_type": "native",
+				"category": "exchange_token",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 200000000
 			}
 		},
 		{
@@ -99,6 +122,14 @@
 				"bitstamp_market": "xrpusd",
 				"coinmetrics_asset": "xrp",
 				"coingecko_id": "ripple"
+			},
+			"profile": {
+				"launched": 2012,
+				"asset_type": "native",
+				"category": "payments",
+				"consensus": "other",
+				"smart_contracts": false,
+				"max_supply": 100000000000
 			}
 		},
 		{
@@ -112,6 +143,13 @@
 				"bitstamp_market": "solusd",
 				"coinmetrics_asset": "sol",
 				"coingecko_id": "solana"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -124,6 +162,13 @@
 				"coinmetrics_asset": "trx",
 				"coingecko_id": "tron"
 			},
+			"profile": {
+				"launched": 2017,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "dpos",
+				"smart_contracts": true
+			},
 			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
 		},
 		{
@@ -135,6 +180,13 @@
 				"kraken_pair": "RUNEUSD",
 				"coinmetrics_asset": "rune",
 				"coingecko_id": "thorchain"
+			},
+			"profile": {
+				"launched": 2019,
+				"asset_type": "native",
+				"category": "defi",
+				"consensus": "pos",
+				"smart_contracts": false
 			}
 		},
 		{
@@ -148,6 +200,14 @@
 				"bitstamp_market": "dotusd",
 				"coinmetrics_asset": "dot",
 				"coingecko_id": "polkadot"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": false,
+				"max_supply": 2100000000
 			}
 		},
 		{
@@ -160,6 +220,13 @@
 				"coinbase_product": "ATOM-USD",
 				"coinmetrics_asset": "atom",
 				"coingecko_id": "cosmos"
+			},
+			"profile": {
+				"launched": 2019,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": false
 			},
 			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
 		},
@@ -174,6 +241,14 @@
 				"bitstamp_market": "avaxusd",
 				"coinmetrics_asset": "avax",
 				"coingecko_id": "avalanche-2"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 720000000
 			}
 		},
 		{
@@ -187,6 +262,14 @@
 				"coinmetrics_asset": "etc",
 				"coingecko_id": "ethereum-classic"
 			},
+			"profile": {
+				"launched": 2016,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pow",
+				"smart_contracts": true,
+				"max_supply": 210700000
+			},
 			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
 		},
 		{
@@ -199,6 +282,13 @@
 				"coinbase_product": "KSM-USD",
 				"coinmetrics_asset": "ksm",
 				"coingecko_id": "kusama"
+			},
+			"profile": {
+				"launched": 2019,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": false
 			}
 		},
 		{
@@ -210,6 +300,13 @@
 				"kraken_pair": "SCUSD",
 				"coinmetrics_asset": "sc",
 				"coingecko_id": "siacoin"
+			},
+			"profile": {
+				"launched": 2015,
+				"asset_type": "native",
+				"category": "storage",
+				"consensus": "pow",
+				"smart_contracts": false
 			}
 		},
 		{
@@ -223,6 +320,13 @@
 				"bitstamp_market": "icpusd",
 				"coinmetrics_asset": "icp",
 				"coingecko_id": "internet-computer"
+			},
+			"profile": {
+				"launched": 2021,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "other",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -235,6 +339,13 @@
 				"coinbase_product": "EGLD-USD",
 				"coinmetrics_asset": "egld",
 				"coingecko_id": "elrond-erd-2"
+			},
+			"profile": {
+				"launched": 2019,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -248,6 +359,13 @@
 				"bitstamp_market": "chzusd",
 				"coinmetrics_asset": "chz",
 				"coingecko_id": "chiliz"
+			},
+			"profile": {
+				"launched": 2019,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -260,6 +378,13 @@
 				"coinbase_product": "MINA-USD",
 				"coinmetrics_asset": "mina",
 				"coingecko_id": "mina-protocol"
+			},
+			"profile": {
+				"launched": 2021,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -269,7 +394,16 @@
 			"added": "2026-10-31",
 			"sources": {
 				"coinmetrics_asset": "zil",
+				"okx_market": "ZIL-USDT",
 				"coingecko_id": "zilliqa"
+			},
+			"profile": {
+				"launched": 2018,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "other",
+				"smart_contracts": true,
+				"max_supply": 21000000000
 			}
 		},
 		{
@@ -283,6 +417,13 @@
 				"bitstamp_market": "nearusd",
 				"coinmetrics_asset": "near",
 				"coingecko_id": "near"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -296,6 +437,13 @@
 				"bitstamp_market": "linkusd",
 				"coinmetrics_asset": "link",
 				"coingecko_id": "chainlink"
+			},
+			"profile": {
+				"launched": 2017,
+				"asset_type": "token",
+				"category": "oracle",
+				"platform": "ethereum",
+				"max_supply": 1000000000
 			}
 		},
 		{
@@ -308,6 +456,13 @@
 				"coinbase_product": "CAKE-USD",
 				"coinmetrics_asset": "cake",
 				"coingecko_id": "pancakeswap-token"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "binance-smart-chain",
+				"max_supply": 400000000
 			}
 		},
 		{
@@ -321,6 +476,12 @@
 				"bitstamp_market": "uniusd",
 				"coinmetrics_asset": "uni",
 				"coingecko_id": "uniswap"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "ethereum"
 			}
 		},
 		{
@@ -334,6 +495,13 @@
 				"bitstamp_market": "xlmusd",
 				"coinmetrics_asset": "xlm",
 				"coingecko_id": "stellar"
+			},
+			"profile": {
+				"launched": 2014,
+				"asset_type": "native",
+				"category": "payments",
+				"consensus": "other",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -347,6 +515,14 @@
 				"bitstamp_market": "suiusd",
 				"coinmetrics_asset": "sui",
 				"coingecko_id": "sui"
+			},
+			"profile": {
+				"launched": 2023,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 10000000000
 			}
 		},
 		{
@@ -360,6 +536,13 @@
 				"bitstamp_market": "crvusd",
 				"coinmetrics_asset": "crv",
 				"coingecko_id": "curve-dao-token"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "ethereum",
+				"max_supply": 3030303031
 			}
 		},
 		{
@@ -373,6 +556,14 @@
 				"bitstamp_market": "adausd",
 				"coinmetrics_asset": "ada",
 				"coingecko_id": "cardano"
+			},
+			"profile": {
+				"launched": 2017,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 45000000000
 			}
 		},
 		{
@@ -386,6 +577,13 @@
 				"bitstamp_market": "xtzusd",
 				"coinmetrics_asset": "xtz",
 				"coingecko_id": "tezos"
+			},
+			"profile": {
+				"launched": 2018,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "pos",
+				"smart_contracts": true
 			}
 		},
 		{
@@ -399,6 +597,13 @@
 				"bitstamp_market": "dogeusd",
 				"coinmetrics_asset": "doge",
 				"coingecko_id": "dogecoin"
+			},
+			"profile": {
+				"launched": 2013,
+				"asset_type": "native",
+				"category": "meme",
+				"consensus": "pow",
+				"smart_contracts": false
 			},
 			"note": "Disabled on 2026-10-31 when the coin list changed. The history stays."
 		},
@@ -414,6 +619,14 @@
 				"coinmetrics_asset": "ltc",
 				"coingecko_id": "litecoin"
 			},
+			"profile": {
+				"launched": 2011,
+				"asset_type": "native",
+				"category": "payments",
+				"consensus": "pow",
+				"smart_contracts": false,
+				"max_supply": 84000000
+			},
 			"note": "Disabled on 2026-10-31 when the coin list changed. The history stays."
 		},
 		{
@@ -428,6 +641,11 @@
 				"bitstamp_market": "usdtusd",
 				"coinmetrics_asset": "usdt",
 				"coingecko_id": "tether"
+			},
+			"profile": {
+				"launched": 2014,
+				"asset_type": "stablecoin",
+				"category": "stablecoin"
 			},
 			"alerts": {
 				"enabled": false

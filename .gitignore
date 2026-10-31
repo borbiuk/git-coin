@@ -23,6 +23,8 @@ npm-debug.log
 # worktrees of the agents (docs/implementation/plan.md)
 /.claude/worktrees/
 
-# local agent settings
+# local agent settings and personal helper scripts (permissions and the gh account wrapper stay on this machine)
+.claude/settings.json
 .claude/settings.local.json
+scripts/gh-borbiuk.sh
 CLAUDE.local.md

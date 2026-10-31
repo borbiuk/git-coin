@@ -158,6 +158,26 @@ The owner's list has 27 coins and not every coin has a USD pair on every source 
 - Order for a new coin: run the backfills into a checkout of `data` first, push `data`, then merge the config. The first run after the merge fills the time between the last candle and now.
 - DOGE and LTC were set to `enabled: false` on 2026-10-31. Their history stays (D6).
 
+### D9. Coin profile (2026-10-31)
+
+Facts about a coin that never change or change rarely live in an optional `profile` object of the coin. The owner edits them by hand, in the same pull request that adds the coin. Anything that changes all the time (price, volume, market cap, supply in circulation, fees, staking yield) stays out of the config. Prices go to the CSV files.
+
+| Field             | Meaning                                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launched`        | Year the asset first existed on a public network: a token contract or a mainnet genesis block, whichever came first. A fork counts from the fork year (ETC 2016). Whole year, 2009 or later. |
+| `asset_type`      | `native` (the coin of its own network), `token` (lives on another network) or `stablecoin`.                                                                                                  |
+| `category`        | One of `layer1`, `store_of_value`, `payments`, `defi`, `oracle`, `exchange_token`, `storage`, `stablecoin`, `meme`.                                                                          |
+| `platform`        | CoinGecko id of the network a token lives on (`ethereum`, `binance-smart-chain`). Required for a `token`, not allowed for the other types.                                                   |
+| `consensus`       | `pow`, `pos`, `dpos` or `other`. Required for a `native` coin, not allowed for the other types (a token uses its platform's).                                                                |
+| `smart_contracts` | The network itself runs general-purpose smart contracts. Required for a `native` coin, not allowed for the other types.                                                                      |
+| `max_supply`      | Hard cap in coins. A missing field means the protocol has no hard cap.                                                                                                                       |
+| `previous_ids`    | Tickers the asset had before a rename. It never holds the current id.                                                                                                                        |
+
+- `launched`, `asset_type` and `category` are always required inside a profile. The profile itself is optional, so a coin without one still loads. The code checks the cross-field rules (platform, consensus and smart contracts by asset type, `previous_ids`). The schema checks the shapes and the allowed values.
+- The profile is not used by the collector, the alerts or the site yet. It is data for later use (grouping on the dashboard, notes on the coin page).
+- A change of `consensus`, `smart_contracts` or `max_supply` follows a protocol upgrade. Write the date and the reason in `note`.
+- Source of the values on 2026-10-31: the public CoinGecko coin pages (`genesis_date`, `categories`, `asset_platform_id`, `max_supply`). CoinGecko has no launch year for many coins and its "Smart Contract Platform" category is too loose to use, so those values and `smart_contracts` are from general knowledge. They were not checked against the project sites, so the owner should review them. `max_supply` is left out for UNI and RUNE: UNI's contract allows new minting, and the CoinGecko value for RUNE is only the supply after burns.
+
 ## Consequences
 
 - Good: a single reviewable file. Dependencies stay at zero. No untrusted text reaches a workflow.

@@ -84,7 +84,7 @@ Run in `git-coin-throwaway`, times in UTC on 2026-10-29. The owner read the inbo
 ## Defects found by running the templates
 
 - `probe.yml`, `issue-email-test.yml` and `bot-push-test.yml` did not turn off `bash -e`. A `grep` without a match ended the probe after the first request. Fixed.
-- The `borbiuk` token of `gh` has the scopes `repo`, `gist`, `read:org` and `admin:public_key`, but not `workflow`. Pushing worked because `git` used SSH with `~/.ssh/id_rsa` (the default SSH key belongs to the work account `nborbiuk_coral`). The three throwaway repos use a local `core.sshCommand` for this. No global setting was changed.
+- The `borbiuk` token of `gh` has the scopes `repo`, `gist`, `read:org` and `admin:public_key`, but not `workflow`. Pushing worked because `git` used SSH with the key of the `borbiuk` account. The three throwaway repos use a local `core.sshCommand` for this. No global setting was changed.
 
 ## Gate G1 and the first real run (2026-10-29, later)
 

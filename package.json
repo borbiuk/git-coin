@@ -23,6 +23,7 @@
 		"format": "prettier --write \"./**/*.{ts,js,mjs,json,jsonc,md,yml,css,html}\" --config ./.prettierrc.json",
 		"format:check": "prettier --check \"./**/*.{ts,js,mjs,json,jsonc,md,yml,css,html}\" --config ./.prettierrc.json",
 		"check:versions": "node scripts/check-versions.mjs",
+		"site:preview": "node scripts/site-preview.mjs",
 		"check:outdated": "npm outdated",
 		"check": "npm run format:check && npm run check:versions && npm run lint && npm run lint:docs && npm run lint:unused && npm test",
 		"prepare": "husky"

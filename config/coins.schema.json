@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://github.com/borbiuk/git-coin/config/coins.schema.json",
 	"title": "git-coin configuration",
-	"description": "Strict schema of config/coins.json. Rules that compare two fields (unique ids, a source needs an id in every enabled coin, stale_warn_minutes below stale_stop_minutes, ref_tolerance_minutes within window_minutes) are checked by src/config.ts, not here.",
+	"description": "Strict schema of config/coins.json. Rules that compare two fields (unique ids, a source needs an id in every enabled coin, stale_warn_minutes below stale_stop_minutes, ref_tolerance_minutes within window_minutes, a token needs a platform, only a native coin has consensus and smart_contracts) are checked by src/config.ts, not here.",
 	"type": "object",
 	"additionalProperties": false,
 	"required": ["schema_version", "settings", "coins"],
@@ -157,6 +157,52 @@
 				}
 			}
 		},
+		"profile": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["launched", "asset_type", "category"],
+			"properties": {
+				"launched": {
+					"type": "integer",
+					"minimum": 2009,
+					"maximum": 2100
+				},
+				"asset_type": { "enum": ["native", "token", "stablecoin"] },
+				"category": {
+					"enum": [
+						"layer1",
+						"store_of_value",
+						"payments",
+						"defi",
+						"oracle",
+						"exchange_token",
+						"storage",
+						"stablecoin",
+						"meme"
+					]
+				},
+				"platform": {
+					"type": "string",
+					"pattern": "^[a-z0-9-]{2,40}$"
+				},
+				"consensus": { "enum": ["pow", "pos", "dpos", "other"] },
+				"smart_contracts": { "type": "boolean" },
+				"max_supply": {
+					"type": "number",
+					"exclusiveMinimum": 0,
+					"maximum": 1000000000000000
+				},
+				"previous_ids": {
+					"type": "array",
+					"minItems": 1,
+					"uniqueItems": true,
+					"items": {
+						"type": "string",
+						"pattern": "^[A-Z0-9]{2,10}$"
+					}
+				}
+			}
+		},
 		"coin": {
 			"type": "object",
 			"additionalProperties": false,
@@ -178,9 +224,11 @@
 						"coinbase_product": { "$ref": "#/$defs/sourceKey" },
 						"bitstamp_market": { "$ref": "#/$defs/sourceKey" },
 						"coinmetrics_asset": { "$ref": "#/$defs/sourceKey" },
+						"okx_market": { "$ref": "#/$defs/sourceKey" },
 						"coingecko_id": { "$ref": "#/$defs/sourceKey" }
 					}
 				},
+				"profile": { "$ref": "#/$defs/profile" },
 				"alerts": {
 					"type": "object",
 					"additionalProperties": false,

@@ -7,9 +7,13 @@ import type {
 	AlertDefaults,
 	AlertOverrides,
 	AlertParams,
+	AssetType,
+	CoinCategory,
 	CoinConfig,
+	CoinProfile,
 	CoinSources,
 	Config,
+	Consensus,
 	Phase,
 	Settings,
 	SourceId,
@@ -44,10 +48,36 @@ const SOURCE_KEYS: readonly (keyof CoinSources)[] = [
 	'coinbase_product',
 	'bitstamp_market',
 	'coinmetrics_asset',
+	'okx_market',
 	'coingecko_id',
 ];
 
+const ASSET_TYPES: readonly AssetType[] = ['native', 'token', 'stablecoin'];
+const CONSENSUS: readonly Consensus[] = ['pow', 'pos', 'dpos', 'other'];
+const CATEGORIES: readonly CoinCategory[] = [
+	'layer1',
+	'store_of_value',
+	'payments',
+	'defi',
+	'oracle',
+	'exchange_token',
+	'storage',
+	'stablecoin',
+	'meme',
+];
+const PROFILE_KEYS = [
+	'launched',
+	'asset_type',
+	'category',
+	'platform',
+	'consensus',
+	'smart_contracts',
+	'max_supply',
+	'previous_ids',
+] as const;
+
 const COIN_ID = /^[A-Z0-9]{2,10}$/;
+const PLATFORM = /^[a-z0-9-]{2,40}$/;
 const SOURCE_KEY = /^[A-Za-z0-9._-]{1,40}$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -411,6 +441,79 @@ function coinSources(value: unknown, path: string): CoinSources {
 	return result;
 }
 
+function profile(value: unknown, path: string, coinId: string): CoinProfile {
+	const obj = object(value, path, PROFILE_KEYS);
+	const assetType = oneOf(
+		required(obj, 'asset_type', path),
+		`${path}.asset_type`,
+		ASSET_TYPES
+	);
+	const result: CoinProfile = {
+		launched: number(required(obj, 'launched', path), `${path}.launched`, {
+			min: 2009,
+			max: 2100,
+			integer: true,
+		}),
+		asset_type: assetType,
+		category: oneOf(
+			required(obj, 'category', path),
+			`${path}.category`,
+			CATEGORIES
+		),
+	};
+	// A token has a platform and uses the consensus of that platform. Only a native coin has its own.
+	if (assetType === 'token') {
+		result.platform = text(
+			required(obj, 'platform', path),
+			`${path}.platform`,
+			PLATFORM
+		);
+	} else if ('platform' in obj) {
+		fail(`${path}.platform`, 'is only allowed for a token');
+	}
+	if (assetType === 'native') {
+		result.consensus = oneOf(
+			required(obj, 'consensus', path),
+			`${path}.consensus`,
+			CONSENSUS
+		);
+		result.smart_contracts = boolean(
+			required(obj, 'smart_contracts', path),
+			`${path}.smart_contracts`
+		);
+	} else {
+		for (const key of ['consensus', 'smart_contracts']) {
+			if (key in obj) {
+				fail(`${path}.${key}`, 'is only allowed for a native coin');
+			}
+		}
+	}
+	if ('max_supply' in obj) {
+		result.max_supply = number(obj.max_supply, `${path}.max_supply`, {
+			min: 0,
+			exclusiveMin: true,
+			max: 1e15,
+		});
+	}
+	if ('previous_ids' in obj) {
+		const idsPath = `${path}.previous_ids`;
+		if (!Array.isArray(obj.previous_ids) || obj.previous_ids.length === 0) {
+			fail(idsPath, 'must be a non-empty list');
+		}
+		const ids = (obj.previous_ids as unknown[]).map((item, index) =>
+			text(item, `${idsPath}[${index}]`, COIN_ID)
+		);
+		if (new Set(ids).size !== ids.length) {
+			fail(idsPath, 'must not repeat a ticker');
+		}
+		if (ids.includes(coinId)) {
+			fail(idsPath, 'must not hold the current id');
+		}
+		result.previous_ids = ids;
+	}
+	return result;
+}
+
 function coin(
 	value: unknown,
 	path: string,
@@ -423,6 +526,7 @@ function coin(
 		'enabled',
 		'added',
 		'sources',
+		'profile',
 		'alerts',
 		'note',
 	]);
@@ -443,6 +547,9 @@ function coin(
 			fail(`${path}.role`, 'must be "rate"');
 		}
 		result.role = 'rate';
+	}
+	if ('profile' in obj) {
+		result.profile = profile(obj.profile, `${path}.profile`, id);
 	}
 	if ('alerts' in obj) {
 		result.alerts = alertOverrides(obj.alerts, `${path}.alerts`, defaults);

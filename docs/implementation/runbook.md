@@ -244,7 +244,7 @@ git worktree add --detach ../git-coin-data-view origin/data
 5. The rows of the other sources stay in `data` (append-only). The dashboard and the alerts read only the chosen source.
 6. The README still says that the data is test data. The orchestrator updates it in the same change. Check the text after the switch.
 
-After G4, the pilot and throwaway repos can be deleted (see the end of [throwaway/README.md](throwaway/README.md)).
+After G4, the pilot and throwaway repos can be deleted (see the end of [throwaway/README.md](throwaway/README.md)). Deleting a repository is always the owner's step in the GitHub UI (Settings, Danger Zone). Agents have no `delete_repo` scope and the permission rules deny `gh repo delete`.
 
 ## If something goes wrong
 

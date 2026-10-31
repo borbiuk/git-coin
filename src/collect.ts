@@ -419,6 +419,8 @@ async function gapStep(
 			...deps.config.settings.stored_sources.map((id) => SRC_CODE[id]),
 			'bs-ohlc' as const,
 			'kr-ohlc' as const,
+			'cb-ohlc' as const,
+			'kt-ohlc' as const,
 		];
 		const targets: GapTarget[] = [];
 		for (const coin of deps.config.coins) {

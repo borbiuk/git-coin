@@ -19,6 +19,7 @@ import {
 	recentPoints,
 	sourcePoints,
 	joinHistory,
+	mergeHistory,
 } from './site/derive.ts';
 import type { Sample, Span } from './site/derive.ts';
 import { findFirstDay } from './site/first-day.ts';
@@ -32,6 +33,15 @@ import type {
 	SeriesPoints,
 	SrcCode,
 } from './types.ts';
+
+/** The sources of candle closes, in order of priority when two have the same time. */
+const HISTORY_SRCS: SrcCode[] = [
+	'cb-ohlc',
+	'kt-ohlc',
+	'bs-ohlc',
+	'ok-ohlc',
+	'kr-ohlc',
+];
 
 const SAFE_COIN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
@@ -98,16 +108,19 @@ export async function buildSite(opts: {
 		}
 		const from = `${firstDay}T00:00:00Z`;
 		const live = await loadSamples(reader, coin.id, from, now, srcOf(coin));
-		// A coin can have Kraken daily closes before its Bitstamp candles start (ADR 0007 D8)
-		const bitstamp = await loadSamples(
-			reader,
-			coin.id,
-			from,
-			now,
-			'bs-ohlc'
+		// The candle sources of a coin, in order of priority (ADR 0004 D1, ADR 0007 D8)
+		const bySrc = new Map<SrcCode, Sample[]>();
+		for (const code of HISTORY_SRCS) {
+			let samples = await loadSamples(reader, coin.id, from, now, code);
+			// OKX prices are in USDT. With no rate entry they cannot be shown in USD.
+			if (code === 'ok-ohlc' && rateCoin === undefined) {
+				samples = [];
+			}
+			bySrc.set(code, samples);
+		}
+		const history = mergeHistory(
+			HISTORY_SRCS.map((code) => bySrc.get(code) ?? [])
 		);
-		const kraken = await loadSamples(reader, coin.id, from, now, 'kr-ohlc');
-		const history = [...bitstamp, ...kraken].sort((a, b) => a.t - b.t);
 		const joined = joinHistory(history, live);
 		const until = live[0]?.ts ?? history[history.length - 1]?.ts;
 		if (joined.samples.length > live.length && until !== undefined) {
@@ -115,12 +128,10 @@ export async function buildSite(opts: {
 				historyUntil === null || until < historyUntil
 					? until
 					: historyUntil;
-			// The note names the Bitstamp candles when any coin has them: most coins do
-			if (bitstamp.length > 0) {
-				historySrc = 'bs-ohlc';
-			} else if (historySrc === null) {
-				historySrc = 'kr-ohlc';
-			}
+			historySrc ??=
+				HISTORY_SRCS.find(
+					(code) => (bySrc.get(code)?.length ?? 0) > 0
+				) ?? null;
 		}
 		return joined;
 	}

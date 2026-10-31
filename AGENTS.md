@@ -40,6 +40,8 @@ The shared types are in `src/types.ts` (the contract of [docs/implementation/pla
 - `npm run check` runs everything below in order. It is the gate for every change.
 - `npm run format` / `npm run format:check`: Prettier. `npm run lint`: ESLint and the TypeScript 7 type check. `npm run lint:docs`: markdownlint and relative links. `npm run lint:unused`: knip. `npm run check:versions`: exact versions. `npm test`: `node --test` on `test/**/*.test.ts` (no network).
 - On a machine whose default Node is not 24, prefix with `./scripts/with-node24.sh`, for example `./scripts/with-node24.sh npm run check`.
+- `npm run site:preview -- [--data-root data] [--port 8765]` builds the dashboard from a checkout of the `data` branch into `out/` and serves it on localhost.
+- `node tools/run-status.ts` summarizes the latest `collect.yml` runs (delivery rate and gaps). `node tools/data-health.ts --data-root <dir>` shows the last tick, failures and gaps per source in a data checkout.
 
 ## Git hooks and commits
 
