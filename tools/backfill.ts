@@ -265,7 +265,8 @@ export async function runAll(
 						return;
 					}
 					try {
-						written += (await runTask(task, opts, pace)).written;
+						const done = await runTask(task, opts, pace);
+						written += done.written;
 					} catch (error) {
 						failed.push(task);
 						opts.log(

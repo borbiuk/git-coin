@@ -53,9 +53,25 @@ On the `data` branch, `data/raw/YYYY/MM/DD/<ID>.csv` has one file per day and co
 1. Open `config/coins.json` on a branch (the GitHub web editor works) and add an object to `coins`.
 2. Fill `id`, `name`, `added`, and the id of each stored source that lists the coin (for example `kraken_pair`, `coinbase_product`, `bitstamp_market`, `coinmetrics_asset`). At least one is needed; a coin can be missing on some sources. A disabled coin keeps `enabled: false` instead of being deleted.
 3. Open a pull request. CI checks the file against `config/coins.schema.json`, and a non-required job checks that the symbols exist at the sources.
-4. After the merge the coin starts at the next run. Its history begins with its first row. Older prices come from a one-off backfill that the owner runs (`tools/backfill-bitstamp.ts`, `tools/backfill-kraken.ts`) before the merge.
+4. After the merge the coin starts at the next run. Its history begins with its first row. Older prices come from a backfill that the owner runs (next section).
 
 The rules are in [ADR 0007](docs/adr/0007-configuration-and-adding-coins.md).
+
+## Backfill the history
+
+Run this after a coin was added (or when `node tools/audit-coverage.ts` shows a low share for a coin). The tools only append, and they continue after the last stored row, so they are safe to run again. They work in a checkout of the `data` branch, and the owner pushes the result.
+
+```bash
+git clone --branch data --single-branch --depth 1 git@github.com:borbiuk/git-coin.git ../git-coin-data
+node tools/audit-coverage.ts --data-root ../git-coin-data                  # share of 15 minute intervals with a price, per coin
+node tools/backfill.ts --data-root ../git-coin-data --dry-run              # the coins and providers it would use
+node tools/backfill.ts --data-root ../git-coin-data --verify               # run, then compare the sources at equal times
+```
+
+- `tools/backfill.ts` picks the coins whose share is below `--min-coverage` (0.8) and fills them from Coinbase, else Kraken trades, else OKX. The providers run side by side. `--coins ATOM,KSM` and `--provider kraken-trades` choose by hand, `--from` and `--until` set the range.
+- A close is left out when it is more than 2% away from another source at the same time, or more than 50% away from the close before it. `--verify` prints the spread between the sources.
+- Bitstamp candles: `tools/backfill-bitstamp.ts --only <ids>`. Daily Kraken closes for a coin with no Bitstamp market: `tools/backfill-kraken.ts`.
+- Then commit in the checkout with the repository identity and push `data`. If the backfill uses a `src` code that `main` does not know yet, push `main` first.
 
 ## Develop and test
 
@@ -80,7 +96,7 @@ On GitHub, the same dry run is the `collect` workflow started by hand with the i
 - **Freshness.** GitHub documents a 5-minute minimum for scheduled workflows, but delivers far fewer runs, and late. Expect gaps. The dashboard does not promise minute-level data and shows a banner when the data is late or stopped.
 - **Alerts are late too.** An alert needs a run, so it can come hours late. A fast spike that reverses between two samples is not seen. Do not use the alerts for trading.
 - **Prices are exchange prices.** They are last trade prices or reference rates in USD (shown in USDT on the page), and they differ a little between sources.
-- **History.** Prices before 2026-10-29 are 15-minute candle closes from Bitstamp (backfilled once, from 2024-01-01), not live Kraken prices. Thin markets have gaps, and BNB starts on 2025-12-16.
+- **History.** Prices before 2026-10-29 are candle closes from the exchanges (Bitstamp, Coinbase, Kraken, OKX), not live prices. They are every 15 minutes where the market had trades. Thin markets have gaps.
 - **Missed runs.** When GitHub skips runs, the next run fills the missing time with 15-minute Bitstamp candles (up to 10 days back). The chart shades that time ("No scheduled run") and hatches time with no data at all.
 - **Test data.** The first 14 days store four sources side by side. See the test period note above.
 - **Terms of the sources.** Some sources do not clearly allow storing or showing their data in public. Coinbase's market data terms forbid display and redistribution. This was a known and accepted risk of the test ([ADR 0002](docs/adr/0002-data-sources.md), Revision 2).

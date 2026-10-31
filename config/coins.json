@@ -206,7 +206,7 @@
 				"asset_type": "native",
 				"category": "layer1",
 				"consensus": "pos",
-				"smart_contracts": false,
+				"smart_contracts": true,
 				"max_supply": 2100000000
 			}
 		},
@@ -226,7 +226,7 @@
 				"asset_type": "native",
 				"category": "layer1",
 				"consensus": "pos",
-				"smart_contracts": false
+				"smart_contracts": true
 			},
 			"note": "No Bitstamp market on purpose: it trades too rarely (a few candles a day), so Kraken gives the candles."
 		},
@@ -288,7 +288,7 @@
 				"asset_type": "native",
 				"category": "layer1",
 				"consensus": "pos",
-				"smart_contracts": false
+				"smart_contracts": true
 			}
 		},
 		{
@@ -361,7 +361,7 @@
 				"coingecko_id": "chiliz"
 			},
 			"profile": {
-				"launched": 2019,
+				"launched": 2018,
 				"asset_type": "native",
 				"category": "layer1",
 				"consensus": "pos",
@@ -401,7 +401,7 @@
 				"launched": 2018,
 				"asset_type": "native",
 				"category": "layer1",
-				"consensus": "other",
+				"consensus": "pos",
 				"smart_contracts": true,
 				"max_supply": 21000000000
 			}
@@ -520,7 +520,7 @@
 				"launched": 2023,
 				"asset_type": "native",
 				"category": "layer1",
-				"consensus": "pos",
+				"consensus": "dpos",
 				"smart_contracts": true,
 				"max_supply": 10000000000
 			}
