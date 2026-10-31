@@ -239,7 +239,7 @@ git worktree add --detach ../git-coin-data-view origin/data
 
 1. Tell the orchestrator your choice and give it `analysis-14d.md`. It writes ADR 0002 Revision 3 with the numbers and your choice, updates ADR 0004, 0005, 0007, 0009 and the index, and changes `config/coins.json` to `stored_sources: ["<chosen>"]`, `phase: "production"` and `features` with `alerts` and `publish` set to `true`.
 2. Review that commit, then push it.
-3. Dry run and first production run, as in G3 steps 2 and 3. Now the `publish` job runs. Check that the page opens at <https://borbiuk.github.io/git-coin/>, that it names the chosen source, shows the disclaimer and shows a fresh "last updated" time.
+3. Dry run and first production run, as in G3 steps 2 and 3. Now the `publish` job runs. Check that the page opens at <https://borbiuk.github.io/git-coin/>, that it names the chosen source under the chart and shows a fresh "last updated" time.
 4. Open the page on a phone, in light and dark mode (checklist item 11).
 5. The rows of the other sources stay in `data` (append-only). The dashboard and the alerts read only the chosen source.
 6. The README still says that the data is test data. The orchestrator updates it in the same change. Check the text after the switch.

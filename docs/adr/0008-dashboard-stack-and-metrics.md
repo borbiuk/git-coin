@@ -158,6 +158,19 @@ An audit of the live page on a phone (375 px and 320 px) and a research of 10 to
 - Not done, on purpose: log scale, candlesticks, a UTC/local switch, small multiples, hiding range buttons that lack data (the history starts in 2024, so every range has data).
 - Research limits: some sources were not readable (403, PDF). The claims about Binance, Kraken and the exact CoinGecko layout have no first-hand source. The touch behaviour was checked with synthetic pointer events in a desktop browser, not on a real phone.
 
+### D9. One chart (2026-10-31)
+
+The owner asked to remove the noise and keep one chart that shows what the reader set up. This changes D4 and D8:
+
+- Removed from the page: the tagline, the disclaimer line, the "About this data" block (source note and freshness note), the row of coin buttons, the section of the selected coin (big price, change table, price chart) and the source comparison. The disclaimer is still in the README; it is no longer on the page. This replaces D4 point 7 and 8, and the "visible disclaimer" rule of ADR 0001 (point 7) and ADR 0009 (risk 20). The owner decided it.
+- The Coin Metrics credit (CC BY-NC 4.0) stays: it is written in the note under the chart when the source of `latest.json` has one.
+- The only chart is the coin comparison in percent. Its table is gone: the table of all coins has the ticks. A row has the tick, the colour, the price, the changes and the line of 7 days. "Show all" and "Hide all" are above the table.
+- In the full page view the panel has a list of coin buttons (a button per coin, filled with the colour of the coin when on) and the same "Show all" and "Hide all", so the lines can be changed without leaving the view. The list can be closed with the "Coins: N of M" button, and it starts closed on a phone held sideways. The table and the list always show the same choice.
+- Bitcoin is the accent coin (`ACCENT_COIN` in `app.js`): its own colour (`--coin-accent`, near black in the light theme and white in the dark one, so it does not repeat a coin colour), a line of 3 px instead of 1.5 px drawn on top of the others, a bold name at the end of the line, and a marked row (bar at the edge, ring on the swatch, bold name). The ten colours go to the other coins in list order.
+- The link no longer carries the coin or the range (`#BTC/7d`): there is no single coin to open. An old link opens the page as usual. `hashFor` and `parseHash` are still in `lib.js`.
+- The x axis of the chart uses the 24-hour UTC labels (`TIME_AXIS`) that the price chart had.
+- Not done: the choice of coins is not kept in the link or in the browser.
+
 ## Consequences
 
 - Good: a tiny site (about 22 KB of library plus about 150 lines) and no toolchain.

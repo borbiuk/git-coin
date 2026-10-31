@@ -568,23 +568,41 @@ test('index.html loads only files of its own origin', () => {
 	}
 });
 
-test('every chart sits in a panel with a button that can show it on the whole page', () => {
+test('the one chart sits in a panel with a button that can show it on the whole page', () => {
 	const html = readFileSync(join(siteDir, 'index.html'), 'utf8');
 	const app = readFileSync(join(siteDir, 'app.js'), 'utf8');
-	for (const chart of ['chart', 'compare-chart', 'multi-chart']) {
-		const panel =
-			chart === 'chart' ? 'chart-panel' : chart.replace('chart', 'panel');
-		assert.match(
-			html,
-			new RegExp(
-				`id="${panel}"[^>]*class="panel"|class="panel"[^>]*id="${panel}"`
-			)
-		);
-		assert.match(html, new RegExp(`aria-controls="${panel}"`));
-		assert.match(html, new RegExp(`id="${panel}-title"`));
-		assert.match(app, new RegExp(`'${panel}':`));
+	assert.match(
+		html,
+		/id="multi-panel"[^>]*class="panel"|class="panel"[^>]*id="multi-panel"/
+	);
+	assert.match(html, /aria-controls="multi-panel"/);
+	assert.match(html, /id="multi-panel-title"/);
+	assert.match(app, /'multi-panel':/);
+	assert.equal(html.match(/class="expand"/g)?.length, 1);
+	assert.equal(html.match(/<div[^>]*class="chart"/g)?.length, 1);
+});
+
+test('the coins on the chart are chosen in the table and in the list of the whole page view', () => {
+	const html = readFileSync(join(siteDir, 'index.html'), 'utf8');
+	const app = readFileSync(join(siteDir, 'app.js'), 'utf8');
+	// The list of coins is inside the panel, so it goes full page with the chart
+	const panel = html.slice(html.indexOf('id="multi-panel"'));
+	assert.ok(
+		panel.indexOf('id="multi-coins"') < panel.indexOf('id="multi-chart"')
+	);
+	assert.match(app, /class: 'show-coin'/);
+	assert.match(app, /class: `chip coin-chip /);
+	// The old blocks are gone: the coin buttons, the details of one coin and the notes
+	for (const text of [
+		'id="detail"',
+		'id="coins"',
+		'id="multi-table"',
+		'About this data',
+		'Not financial advice',
+		'collected on a schedule and kept in git',
+	]) {
+		assert.ok(!html.includes(text), text);
 	}
-	assert.equal(html.match(/class="expand"/g)?.length, 3);
 });
 
 test('app.js records the vendored uPlot version and fetches only own data files', () => {

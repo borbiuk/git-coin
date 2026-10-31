@@ -38,29 +38,12 @@
 			<h1 class="brand">
 				<img src="logo.svg" alt="" width="32" height="32" />git-coin
 			</h1>
-			<p class="tagline">
-				Prices of 27 coins, collected on a schedule and kept in git.
-			</p>
 		</header>
 		<main id="main" class="wrap" tabindex="-1">
-			<p class="disclaimer">
-				<strong>Not financial advice.</strong> Prices may be delayed,
-				missing or wrong.
-			</p>
-
 			<div id="banners" role="status"></div>
 
-			<section class="info" aria-label="Data freshness and source">
+			<section class="info" aria-label="Data freshness">
 				<p id="updated" class="updated">Loading the latest prices…</p>
-				<details class="more">
-					<summary>About this data</summary>
-					<p id="source" class="muted"></p>
-					<p class="muted">
-						Data comes from public sources and is shown as is.
-						Updated about every 15 to 30 minutes when GitHub runs on
-						time. Runs can be late by hours.
-					</p>
-				</details>
 			</section>
 
 			<noscript>
@@ -71,105 +54,12 @@
 
 			<div id="problem" class="notice" role="status" hidden></div>
 
-			<div
-				id="coins"
-				class="chips"
-				role="group"
-				aria-label="Choose a coin"
-			></div>
-
-			<section id="detail" aria-labelledby="detail-title" hidden>
-				<h2 id="detail-title"></h2>
-				<p class="price">
-					<span id="detail-price"></span>
-					<span id="detail-unit" class="unit"></span>
-				</p>
-				<p id="detail-asof" class="muted"></p>
-
-				<div
-					class="table-wrap"
-					tabindex="0"
-					role="region"
-					aria-label="Change, high and low of the selected coin"
-				>
-					<table id="stats">
-						<caption class="sr">
-							Change, high and low of the selected coin
-						</caption>
-						<thead>
-							<tr>
-								<th scope="col">Period</th>
-								<th scope="col">Change</th>
-								<th scope="col">High</th>
-								<th scope="col">Low</th>
-							</tr>
-						</thead>
-						<tbody></tbody>
-					</table>
-				</div>
-
-				<div id="chart-panel" class="panel">
-					<div class="panel-bar">
-						<h3
-							id="chart-panel-title"
-							class="chart-title panel-title always"
-						>
-							Price chart
-						</h3>
-						<button
-							type="button"
-							class="expand"
-							aria-expanded="false"
-							aria-controls="chart-panel"
-							aria-label="Show the price chart on the whole page"
-						>
-							<span aria-hidden="true">⤢</span> Expand
-						</button>
-					</div>
-					<div
-						id="ranges"
-						class="ranges"
-						role="group"
-						aria-label="Chart range"
-					></div>
-					<p
-						id="chart-readout"
-						class="readout"
-						aria-hidden="true"
-					></p>
-					<div id="chart" class="chart" role="img"></div>
-					<p id="chart-caption" class="muted"></p>
-					<p id="chart-status" class="muted" role="status"></p>
-				</div>
-
-				<details id="compare" class="more" hidden>
-					<summary id="compare-title">
-						Source comparison, last 7 days
-					</summary>
-					<div id="compare-panel" class="panel">
-						<div class="panel-bar">
-							<p id="compare-panel-title" class="panel-title"></p>
-							<button
-								type="button"
-								class="expand"
-								aria-expanded="false"
-								aria-controls="compare-panel"
-								aria-label="Show the source comparison on the whole page"
-							>
-								<span aria-hidden="true">⤢</span> Expand
-							</button>
-						</div>
-						<div id="compare-chart" class="chart" role="img"></div>
-						<p id="compare-note" class="muted"></p>
-					</div>
-				</details>
-			</section>
-
 			<section id="multi" aria-labelledby="multi-title" hidden>
 				<h2 id="multi-title">Compare coins</h2>
 				<p class="muted">
 					Change in percent, so coins of any price share one chart.
-					The 0% line is the base you choose.
+					The 0% line is the base you choose. Tick coins in the table
+					below to show them.
 				</p>
 				<div id="multi-panel" class="panel">
 					<div class="panel-bar">
@@ -197,15 +87,51 @@
 						role="group"
 						aria-labelledby="multi-base-label"
 					></div>
+					<!-- Shown only in the whole page view, where the table of coins is out of reach -->
+					<div id="multi-picker" class="picker">
+						<div class="picker-bar">
+							<button
+								type="button"
+								id="multi-picker-toggle"
+								class="chip"
+								aria-expanded="true"
+								aria-controls="multi-coins"
+							></button>
+							<button type="button" class="link-button multi-all">
+								Show all
+							</button>
+							<button
+								type="button"
+								class="link-button multi-none"
+							>
+								Hide all
+							</button>
+						</div>
+						<div
+							id="multi-coins"
+							class="chips"
+							role="group"
+							aria-label="Coins on the chart"
+						></div>
+					</div>
 					<div id="multi-chart" class="chart" role="img"></div>
 					<p id="multi-readout" class="muted" aria-hidden="true"></p>
 					<p id="multi-note" class="muted" role="status"></p>
 				</div>
+			</section>
+
+			<section id="all" aria-labelledby="all-title" hidden>
+				<h2 id="all-title">All coins</h2>
+				<p class="muted">
+					Prices in <span id="latest-unit"></span>. Tick a coin to
+					show it on the chart. Press a heading to sort. The line
+					shows the last 7 days.
+				</p>
 				<div class="multi-actions">
-					<button type="button" id="multi-all" class="link-button">
+					<button type="button" class="link-button multi-all">
 						Show all
 					</button>
-					<button type="button" id="multi-none" class="link-button">
+					<button type="button" class="link-button multi-none">
 						Hide all
 					</button>
 				</div>
@@ -213,36 +139,7 @@
 					class="table-wrap"
 					tabindex="0"
 					role="region"
-					aria-label="Percent change of each coin and the choice of lines"
-				>
-					<table id="multi-table">
-						<caption class="sr">
-							Percent change of each coin against the chosen base
-						</caption>
-						<thead>
-							<tr>
-								<th scope="col">Show</th>
-								<th scope="col">Coin</th>
-
-								<th scope="col" class="num">At latest</th>
-							</tr>
-						</thead>
-						<tbody></tbody>
-					</table>
-				</div>
-			</section>
-
-			<section id="all" aria-labelledby="all-title" hidden>
-				<h2 id="all-title">All coins</h2>
-				<p class="muted">
-					Prices in <span id="latest-unit"></span>. Press a heading to
-					sort. The line shows the last 7 days.
-				</p>
-				<div
-					class="table-wrap"
-					tabindex="0"
-					role="region"
-					aria-label="Latest prices of all coins"
+					aria-label="Latest prices of all coins and the choice of lines"
 				>
 					<table id="latest">
 						<thead>

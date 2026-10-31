@@ -9,11 +9,6 @@
 	--grid: #e2e6ec;
 	--accent: #0a58ca;
 	--on-accent: #ffffff;
-	--line: #0a58ca;
-	--series-1: #0b4fb3;
-	--series-2: #c25e00;
-	--series-3: #0a7ea8;
-	--series-4: #a0338f;
 	--coin-1: #0b4fb3;
 	--coin-2: #c25e00;
 	--coin-3: #8a6d00;
@@ -24,6 +19,8 @@
 	--coin-8: #12662b;
 	--coin-9: #7a4a2a;
 	--coin-10: #4f5864;
+	/* Bitcoin has its own colour, strong against the background, so it is not mistaken for another coin */
+	--coin-accent: #05080c;
 	--up: #12662b;
 	--down: #a8201a;
 	--focus: #0a58ca;
@@ -48,11 +45,6 @@
 		--grid: #2a313a;
 		--accent: #8bbcff;
 		--on-accent: #0e1217;
-		--line: #6cb0ff;
-		--series-1: #6ea8ff;
-		--series-2: #f2a65a;
-		--series-3: #5fd4f0;
-		--series-4: #e08ad0;
 		--coin-1: #6ea8ff;
 		--coin-2: #f2a65a;
 		--coin-3: #e6c84a;
@@ -63,6 +55,7 @@
 		--coin-8: #62d17f;
 		--coin-9: #c99a7a;
 		--coin-10: #aab4c0;
+		--coin-accent: #ffffff;
 		--up: #62d17f;
 		--down: #ff958b;
 		--focus: #8bbcff;
@@ -143,12 +136,6 @@ a {
 	font-size: 0.875rem;
 }
 
-.tagline {
-	margin: 4px 0 12px;
-	color: var(--muted);
-	font-size: 0.9375rem;
-}
-
 .sr {
 	position: absolute;
 	width: 1px;
@@ -176,17 +163,6 @@ a {
 :focus-visible {
 	outline: 3px solid var(--focus);
 	outline-offset: 2px;
-}
-
-/* Disclaimer: at the top, so it is visible without scrolling on a phone */
-.disclaimer {
-	margin: 0 0 12px;
-	padding: 10px 12px;
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-left: 4px solid var(--accent);
-	border-radius: 4px;
-	font-size: 0.9375rem;
 }
 
 .banner {
@@ -266,57 +242,6 @@ a {
 	cursor: pointer;
 }
 
-/* A closed block with a heading: the source note, the source comparison */
-.more {
-	margin: 4px 0;
-}
-
-.more > summary {
-	display: flex;
-	align-items: center;
-	min-height: 44px;
-	color: var(--accent);
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.more > summary::before {
-	content: '▸';
-	margin-right: 8px;
-	font-size: 0.9em;
-}
-
-.more[open] > summary::before {
-	content: '▾';
-}
-
-#compare > summary {
-	margin-top: 8px;
-	font-size: 1.0625rem;
-}
-
-/* Selected coin */
-.price {
-	margin: 4px 0;
-	font-size: 2rem;
-	font-weight: 700;
-	line-height: 1.2;
-	font-variant-numeric: tabular-nums;
-}
-
-.unit {
-	color: var(--muted);
-	font-size: 1rem;
-	font-weight: 600;
-}
-
-.readout {
-	min-height: 1.5em;
-	margin: 4px 0;
-	font-size: 0.875rem;
-	font-variant-numeric: tabular-nums;
-}
-
 .table-wrap {
 	max-width: 100%;
 	overflow-x: auto;
@@ -347,10 +272,6 @@ td.num {
 	text-align: right;
 }
 
-#stats {
-	max-width: 36rem;
-}
-
 #latest {
 	max-width: 44rem;
 	font-size: 0.875rem;
@@ -375,15 +296,6 @@ td.num {
 	#latest {
 		font-size: 0.8125rem;
 	}
-
-	#stats {
-		font-size: 0.875rem;
-	}
-
-	#stats th,
-	#stats td {
-		padding: 4px 6px;
-	}
 }
 
 .chg {
@@ -401,10 +313,6 @@ td.num {
 .chg-flat,
 .chg-na {
 	color: var(--muted);
-}
-
-.chart-title {
-	margin-bottom: 0;
 }
 
 .chart {
@@ -443,26 +351,23 @@ footer {
 	margin: 8px 0;
 }
 
-#multi-table {
-	max-width: 30rem;
-}
-
-#multi-table tbody tr:hover {
+#latest tbody tr:hover {
 	background: var(--surface);
 }
 
-.check {
+/* The tick and the name of a coin in the table: the whole label is the tap target */
+.pick {
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	min-width: 44px;
 	min-height: 44px;
+	font-weight: 600;
+	cursor: pointer;
 }
 
-.check input {
+.pick input {
 	width: 24px;
 	height: 24px;
-	margin: 0;
+	margin: 0 8px 0 0;
 	accent-color: var(--c, var(--accent));
 }
 
@@ -489,10 +394,6 @@ footer {
 	display: none;
 	flex: 1;
 	min-width: 0;
-}
-
-.panel-bar .panel-title.always {
-	display: block;
 }
 
 .expand {
@@ -638,28 +539,69 @@ body.has-panel-open {
 	height: 28px;
 }
 
-#latest tbody tr[aria-current='true'] {
+/* Bitcoin: its own colour, a bold name, a bar at the edge of the row and a ring on its swatch */
+.coin-accent {
+	--c: var(--coin-accent);
+}
+
+#latest tbody tr.coin-accent {
 	background: var(--surface);
+	font-weight: 700;
+}
+
+#latest tbody tr.coin-accent th {
+	box-shadow: inset 4px 0 0 var(--c);
+	padding-left: 12px;
+}
+
+.coin-accent .swatch {
+	box-shadow:
+		0 0 0 2px var(--bg),
+		0 0 0 4px var(--c);
+}
+
+/* The list of coins in the whole page view: a button for each, filled with the colour of the coin when on */
+.picker {
+	display: none;
+}
+
+.panel.is-expanded .picker {
+	display: block;
+}
+
+.picker-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+}
+
+.chips[hidden] {
+	display: none;
+}
+
+#multi-coins {
+	gap: 6px;
+	max-height: min(30vh, 11rem);
+	margin: 8px 0;
+	overflow-y: auto;
+}
+
+.coin-chip {
+	min-width: 52px;
+	border-color: var(--c);
+	touch-action: manipulation;
+}
+
+.coin-chip[aria-pressed='true'] {
+	background: var(--c);
+	border-color: var(--c);
+	color: var(--bg);
 }
 
 /* Crosshair: a solid line in the text colour */
 .u-hz .u-cursor-x {
 	border-right: 1px solid var(--text);
-}
-
-/* Chart states: a skeleton while loading, a dashed frame when there is nothing to draw */
-.chart.is-loading {
-	border-radius: 8px;
-	background:
-		linear-gradient(var(--grid), var(--grid)) 0 12% / 100% 6px no-repeat,
-		linear-gradient(var(--grid), var(--grid)) 0 50% / 100% 6px no-repeat,
-		linear-gradient(var(--grid), var(--grid)) 0 88% / 100% 6px no-repeat;
-}
-
-.chart.is-empty,
-.chart.is-error {
-	border: 1px dashed var(--muted);
-	border-radius: 8px;
 }
 
 /* Phones: every coin is a card of two lines (name, line and price; then the three changes), and the
@@ -770,10 +712,6 @@ body.has-panel-open {
 }
 
 @media (max-width: 480px) {
-	.price {
-		font-size: 1.75rem;
-	}
-
 	.chart {
 		min-height: 220px;
 	}

@@ -2,31 +2,21 @@
 // Chart library: uPlot 1.6.32 (MIT), vendored in vendor/. Dependabot cannot update it: update by hand.
 import {
 	BASES,
-	COMPARE_STYLES,
 	COIN_COLOURS,
 	MAX_COMPARE_LINES,
 	RANGES,
 	alertSummary,
-	breakGaps,
 	coinDataUrl,
 	coinSlot,
 	dailyToPoints,
-	filledNote,
-	formatAxisPrice,
 	formatChange,
 	formatPercentAxis,
 	formatLastUpdated,
-	formatPrice,
 	formatPriceBare,
-	formatReadout,
-	formatUtcStamp,
 	formatUtcTime,
-	hashFor,
-	historyNote,
 	issueUrl,
 	mergeSources,
 	nextSort,
-	parseHash,
 	quoteName,
 	rebase,
 	setQuote,
@@ -38,10 +28,7 @@ import {
 	staleLimits,
 	staleState,
 	summarizeChanges,
-	summarizeSeries,
-	summarizeSources,
 	validSeries,
-	validSources,
 } from './lib.js';
 
 const REFRESH_MS = 10 * 60 * 1000;
@@ -51,12 +38,8 @@ const app = {
 	status: null,
 	latest: null,
 	alerts: null,
-	coin: null,
-	range: '7d',
 	// The order of the table of all coins: the coin list order until a heading is pressed
 	sort: { key: 'order', dir: 'asc' },
-	chart: null,
-	compare: null,
 	// The coin comparison: the coins on the chart, the 0% base and the range are the reader's choice
 	multi: {
 		chart: null,
@@ -67,12 +50,12 @@ const app = {
 		focus: null,
 		rows: [],
 		compact: false,
+		// The list of coins in the full page view is open until the reader closes it
+		pickerOpen: true,
 	},
 	cache: new Map(),
 	// The 7 day series of every coin, for the lines of the overview table. Null until they are loaded.
 	sparks: null,
-	drawToken: 0,
-	compareToken: 0,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -131,29 +114,6 @@ function renderFreshness() {
 	}
 }
 
-function renderSource() {
-	const box = $('source');
-	box.replaceChildren();
-	if (!app.latest) {
-		return;
-	}
-	const info = sourceInfo(app.latest.src);
-	box.append('Source: ');
-	box.append(info.url ? link(info.url, info.name) : info.name);
-	box.append(`. Quote: ${app.latest.quote}.`);
-	const history = historyNote(app.latest.history, Date.now());
-	if (history) {
-		box.append(` ${history}`);
-	}
-	if (info.credit) {
-		box.append(
-			` ${info.credit.text} `,
-			link(info.credit.licenceUrl, info.credit.licence),
-			'.'
-		);
-	}
-}
-
 function showProblem(message) {
 	const box = $('problem');
 	box.textContent = message ?? '';
@@ -164,6 +124,23 @@ function showProblem(message) {
 
 function coinIds() {
 	return app.latest ? Object.keys(app.latest.coins) : [];
+}
+
+// Bitcoin has its own look (a heavier line, a marked row), so it stands out among the other coins
+const ACCENT_COIN = 'BTC';
+
+// The ten colours go to the other coins in list order, so a coin keeps its colour. The accent coin has its own.
+function coinClass(id) {
+	if (id === ACCENT_COIN) {
+		return 'coin-accent';
+	}
+	const others = coinIds().filter((other) => other !== ACCENT_COIN);
+	return `coin-${coinSlot(others, id)}`;
+}
+
+// The colour of a coin: the same in the lines, the names at their ends, the table and the overview
+function coinColour(id) {
+	return cssVar(`--${coinClass(id)}`);
 }
 
 function changeNode(pct) {
@@ -185,26 +162,6 @@ function setPressed(box, key) {
 	for (const button of box.children) {
 		button.setAttribute('aria-pressed', String(button.dataset.key === key));
 	}
-}
-
-function renderChips() {
-	const box = $('coins');
-	const ids = coinIds();
-	if (box.dataset.ids !== ids.join(',')) {
-		box.replaceChildren();
-		for (const id of ids) {
-			const chip = el('button', {
-				type: 'button',
-				class: 'chip',
-				'data-key': id,
-				text: id,
-			});
-			chip.addEventListener('click', () => selectCoin(id));
-			box.append(chip);
-		}
-		box.dataset.ids = ids.join(',');
-	}
-	setPressed(box, app.coin);
 }
 
 // The columns of the table of all coins that can be sorted. The line of the last 7 days is the last cell.
@@ -270,21 +227,9 @@ function overviewRows() {
 	}));
 }
 
-// The row of the selected coin is marked
-function markCurrent() {
-	for (const tr of $('latest').querySelectorAll('tbody tr')) {
-		if (tr.dataset.id === app.coin) {
-			tr.setAttribute('aria-current', 'true');
-		} else {
-			tr.removeAttribute('aria-current');
-		}
-	}
-}
-
 // A line of the last 7 days in the colour of the coin, scaled to the prices of that coin alone
 function paintSparks() {
 	const ratio = window.devicePixelRatio || 1;
-	const ids = coinIds();
 	for (const canvas of $('latest').querySelectorAll('canvas.spark')) {
 		const series = app.sparks?.get(canvas.dataset.id);
 		const points = series ? sparkPoints(series.t, series.p) : null;
@@ -302,7 +247,7 @@ function paintSparks() {
 			pad + points.x[i] * (width - 2 * pad),
 			height - pad - points.y[i] * (height - 2 * pad),
 		];
-		ctx.strokeStyle = cssVar(`--coin-${coinSlot(ids, canvas.dataset.id)}`);
+		ctx.strokeStyle = coinColour(canvas.dataset.id);
 		ctx.fillStyle = ctx.strokeStyle;
 		ctx.lineWidth = 1.5;
 		ctx.lineJoin = 'round';
@@ -342,51 +287,53 @@ function renderTable() {
 	const body = $('latest').querySelector('tbody');
 	body.replaceChildren();
 	$('latest-unit').textContent = quoteName();
-	const ids = coinIds();
 	for (const row of sortOverview(overviewRows(), app.sort)) {
+		const box = el('input', {
+			type: 'checkbox',
+			class: 'show-coin',
+			'data-id': row.id,
+			'aria-label': `Show ${row.name} (${row.id}) in the chart`,
+		});
+		box.checked = app.multi.selected.has(row.id);
+		box.addEventListener('change', () => setCoinShown(row.id, box.checked));
 		const pick = el(
-			'button',
-			{
-				type: 'button',
-				class: 'link-button',
-				'aria-label': `Show ${row.name} (${row.id}) in the chart`,
-			},
+			'label',
+			{ class: 'pick' },
+			box,
 			el('span', { class: 'swatch', 'aria-hidden': 'true' }),
 			row.id
 		);
-		pick.addEventListener('click', () => {
-			selectCoin(row.id);
-			$('detail').scrollIntoView({ block: 'start' });
-		});
-		body.append(
-			el(
-				'tr',
-				{ class: `coin-${coinSlot(ids, row.id)}`, 'data-id': row.id },
-				el('th', { scope: 'row', class: 'col-coin' }, pick),
-				el('td', {
-					class: 'num col-price',
-					text: formatPriceBare(row.price),
-				}),
-				...['24h', '7d', '30d'].map((key) =>
-					el(
-						'td',
-						{ class: `num col-${key}`, 'data-label': key },
-						changeNode(row[key])
-					)
-				),
+		const tr = el(
+			'tr',
+			{ class: coinClass(row.id), 'data-id': row.id },
+			el('th', { scope: 'row', class: 'col-coin' }, pick),
+			el('td', {
+				class: 'num col-price',
+				text: formatPriceBare(row.price),
+			}),
+			...['24h', '7d', '30d'].map((key) =>
 				el(
 					'td',
-					{ class: 'col-spark' },
-					el('canvas', {
-						class: 'spark',
-						'data-id': row.id,
-						'aria-hidden': 'true',
-					})
+					{ class: `num col-${key}`, 'data-label': key },
+					changeNode(row[key])
 				)
+			),
+			el(
+				'td',
+				{ class: 'col-spark' },
+				el('canvas', {
+					class: 'spark',
+					'data-id': row.id,
+					'aria-hidden': 'true',
+				})
 			)
 		);
+		tr.addEventListener('mouseenter', () => focusLine(row.id));
+		tr.addEventListener('mouseleave', () => focusLine(null));
+		box.addEventListener('focus', () => focusLine(row.id));
+		box.addEventListener('blur', () => focusLine(null));
+		body.append(tr);
 	}
-	markCurrent();
 	if (app.sparks) {
 		paintSparks();
 	} else {
@@ -404,38 +351,6 @@ function renderTable() {
 			? `No data from the source for: ${missing.join(', ')}.`
 			: '';
 	$('all').hidden = false;
-}
-
-function renderDetail() {
-	const coin = app.latest.coins[app.coin];
-	$('detail').hidden = false;
-	$('detail-title').textContent = `${coin.name} (${app.coin})`;
-	$('detail-price').textContent = formatPriceBare(coin.price);
-	$('detail-unit').textContent =
-		app.latest.quote === 'USD' ? '' : app.latest.quote;
-
-	const now = Date.now();
-	const limits = staleLimits(app.status);
-	const state = staleState(coin.ts, now, limits);
-	const late = state === 'fresh' ? '' : ' This price is old.';
-	$('detail-asof').textContent =
-		`Price of ${formatUtcTime(coin.ts, now)}, in ${quoteName()}.${late}`;
-
-	const body = $('stats').querySelector('tbody');
-	body.replaceChildren();
-	for (const key of ['24h', '7d', '30d']) {
-		const period = coin.periods[key];
-		body.append(
-			el(
-				'tr',
-				{},
-				el('th', { scope: 'row', text: key }),
-				el('td', {}, changeNode(period.change_pct)),
-				el('td', { text: formatPriceBare(period.high) }),
-				el('td', { text: formatPriceBare(period.low) })
-			)
-		);
-	}
 }
 
 // ----- alerts
@@ -485,29 +400,6 @@ function chartHeight(host) {
 	return Math.round(Math.min(420, Math.max(220, window.innerHeight * 0.38)));
 }
 
-function destroyChart() {
-	if (app.chart) {
-		app.chart.destroy();
-		app.chart = null;
-	}
-	$('chart-readout').textContent = '';
-}
-
-// Points that get a marker: both ends of every run of points around a gap, and the last point
-function markerIndices(values) {
-	const last = values.length - 1;
-	const out = [];
-	for (let i = 0; i <= last; i++) {
-		if (values[i] === null) {
-			continue;
-		}
-		if (i === last || values[i - 1] === null || values[i + 1] === null) {
-			out.push(i);
-		}
-	}
-	return out;
-}
-
 // Time spans of the gaps: from the last point before a gap to the first point after it (see breakGaps)
 function gapSpans(t, values) {
 	const spans = [];
@@ -534,46 +426,11 @@ function hatchPattern(ctx, color, ratio) {
 	return ctx.createPattern(tile, 'repeat');
 }
 
-// A shaded band over the time of every missed run that was filled with candles, with a label when it fits
-function drawFilled(u, spans, colors) {
-	const { ctx, bbox } = u;
-	const ratio = window.devicePixelRatio || 1;
-	ctx.save();
-	ctx.font = `${12 * ratio}px ${colors.font}`;
-	ctx.textAlign = 'center';
-	ctx.textBaseline = 'top';
-	const label = 'No scheduled run';
-	const labelWidth = ctx.measureText(label).width + 8 * ratio;
-	for (const [from, to] of spans) {
-		const x0 = Math.max(u.valToPos(from, 'x', true), bbox.left);
-		const x1 = Math.min(u.valToPos(to, 'x', true), bbox.left + bbox.width);
-		const width = x1 - x0;
-		if (width < 3 * ratio) {
-			continue;
-		}
-		ctx.globalAlpha = 0.14;
-		ctx.fillStyle = colors.accent;
-		ctx.fillRect(x0, bbox.top, width, bbox.height);
-		ctx.globalAlpha = 1;
-		if (width < labelWidth + 8 * ratio) {
-			continue;
-		}
-		const middle = x0 + width / 2;
-		const top = bbox.top + 6 * ratio;
-		ctx.fillStyle = colors.bg;
-		ctx.fillRect(middle - labelWidth / 2, top, labelWidth, 18 * ratio);
-		ctx.fillStyle = colors.text;
-		ctx.fillText(label, middle, top + 3 * ratio);
-	}
-	ctx.restore();
-}
-
 // A hatched band and a "No data" label over every gap, drawn under the grid and the line
-function drawGaps(u, spans, colors, filled = []) {
+function drawGaps(u, spans, colors) {
 	const { ctx, bbox } = u;
 	const ratio = window.devicePixelRatio || 1;
 	const hatch = hatchPattern(ctx, colors.hatch, ratio);
-	drawFilled(u, filled, colors);
 	ctx.save();
 	for (const [from, to] of spans) {
 		const x0 = Math.max(u.valToPos(from, 'x', true), bbox.left);
@@ -643,59 +500,6 @@ const TIME_AXIS = [
 	],
 ];
 
-// A dashed line at the latest price and its value on a plate at the right edge
-function drawLast(u, price, colors) {
-	const { ctx, bbox } = u;
-	const ratio = window.devicePixelRatio || 1;
-	const y = u.valToPos(price, 'y', true);
-	if (y < bbox.top || y > bbox.top + bbox.height) {
-		return;
-	}
-	ctx.save();
-	ctx.strokeStyle = colors.accent;
-	ctx.lineWidth = ratio;
-	ctx.setLineDash([4 * ratio, 4 * ratio]);
-	ctx.beginPath();
-	ctx.moveTo(bbox.left, y);
-	ctx.lineTo(bbox.left + bbox.width, y);
-	ctx.stroke();
-	ctx.setLineDash([]);
-	ctx.font = `600 ${12 * ratio}px ${colors.font}`;
-	ctx.textAlign = 'right';
-	ctx.textBaseline = 'middle';
-	const label = formatPriceBare(price);
-	const width = ctx.measureText(label).width + 10 * ratio;
-	const height = 18 * ratio;
-	// The plate sits above the line, or below it when the line is at the top
-	const top =
-		y - height - 2 * ratio >= bbox.top
-			? y - height - 2 * ratio
-			: y + 2 * ratio;
-	const right = bbox.left + bbox.width;
-	ctx.fillStyle = colors.accent;
-	ctx.fillRect(right - width, top, width, height);
-	ctx.fillStyle = colors.onAccent;
-	ctx.fillText(label, right - 5 * ratio, top + height / 2);
-	ctx.restore();
-}
-
-// The line above the chart: the point under the cursor, or the latest point when there is none
-function updateChartReadout(u, series) {
-	const index = u.cursor.idx;
-	const last = series.t.length - 1;
-	const first = series.p.find((v) => v !== null);
-	const out = $('chart-readout');
-	if (index == null) {
-		out.textContent = `Latest: ${formatReadout(series.t[last], series.p[last], first)}`;
-		return;
-	}
-	const price = series.p[index];
-	out.textContent =
-		price === null
-			? `${formatUtcStamp(series.t[index])} · no data`
-			: formatReadout(series.t[index], price, first);
-}
-
 // uPlot follows the mouse only. A finger dragged along the chart moves the crosshair the same way, and
 // `touch-action: pan-y` (style.css) leaves the drag up or down to the page.
 function followTouch(u) {
@@ -712,106 +516,6 @@ function followTouch(u) {
 	};
 	over.addEventListener('pointerdown', move);
 	over.addEventListener('pointermove', move);
-}
-
-function drawChart(series) {
-	destroyChart();
-	const host = $('chart');
-	const UPlot = window.uPlot;
-	if (!UPlot) {
-		$('chart-status').textContent = 'The chart library did not load.';
-		return;
-	}
-	const data = breakGaps(series.t, series.p);
-	const muted = cssVar('--muted');
-	const grid = cssVar('--grid');
-	const line = cssVar('--line');
-	const bg = cssVar('--bg');
-	const colors = {
-		bg,
-		text: cssVar('--text'),
-		hatch: cssVar('--border'),
-		font: cssVar('--font'),
-		accent: cssVar('--accent'),
-		onAccent: cssVar('--on-accent'),
-	};
-	const spans = gapSpans(data.t, data.p);
-	const filled = series.filled ?? [];
-	const markers = markerIndices(data.p);
-	const latest = data.p[data.p.length - 1];
-	const axis = {
-		stroke: muted,
-		grid: { stroke: grid, width: 1 },
-		ticks: { stroke: grid, width: 1 },
-	};
-	app.chart = new UPlot(
-		{
-			width: Math.max(host.clientWidth, 200),
-			height: chartHeight(host),
-			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
-			// The readout above the chart replaces the legend, which showed empty values until a point was touched
-			legend: { show: false },
-			cursor: {
-				y: false,
-				drag: { x: false, y: false },
-				points: { size: 9, width: 2, fill: bg, stroke: line },
-			},
-			hooks: {
-				ready: [followTouch],
-				drawClear: [(u) => drawGaps(u, spans, colors, filled)],
-				draw: [(u) => drawLast(u, latest, colors)],
-				setCursor: [(u) => updateChartReadout(u, data)],
-			},
-			series: [
-				{ value: '{YYYY}-{MM}-{DD} {HH}:{mm} UTC' },
-				{
-					label: 'Price',
-					stroke: line,
-					width: 2,
-					spanGaps: false,
-					points: {
-						show: true,
-						size: 9,
-						fill: line,
-						stroke: bg,
-						width: 2,
-						filter: () => markers,
-					},
-					value: (u, v) => (v === null ? '–' : formatPrice(v)),
-				},
-			],
-			axes: [
-				{ ...axis, values: TIME_AXIS },
-				{
-					...axis,
-					values: (u, ticks) => ticks.map(formatAxisPrice),
-					// Room for the longest label, about 7 px per character plus the tick
-					size: (u, labels) =>
-						labels
-							? Math.max(...labels.map((s) => s.length)) * 7 + 22
-							: 60,
-				},
-			],
-		},
-		[data.t, data.p],
-		host
-	);
-	updateChartReadout(app.chart, data);
-}
-
-// ----- source comparison (shown only while the data holds more than one source)
-
-function destroyCompare() {
-	if (app.compare) {
-		app.compare.destroy();
-		app.compare = null;
-	}
-}
-
-function hideCompare() {
-	closePanelOf('compare-panel');
-	destroyCompare();
-	$('compare').hidden = true;
 }
 
 function drawMarker(ctx, shape, x, y, r) {
@@ -877,12 +581,12 @@ function drawEnds(u, ends, colors) {
 	}
 
 	ctx.save();
-	ctx.font = `${12 * ratio}px ${colors.font}`;
 	ctx.textAlign = 'left';
 	ctx.textBaseline = 'middle';
-	ctx.lineWidth = 1.5 * ratio;
 	for (const item of items) {
 		const markerX = item.x + 3 * radius;
+		ctx.font = `${item.bold ? '700 ' : ''}${12 * ratio}px ${colors.font}`;
+		ctx.lineWidth = (item.bold ? 2.5 : 1.5) * ratio;
 		ctx.strokeStyle = item.color;
 		ctx.beginPath();
 		ctx.moveTo(item.x, item.y);
@@ -894,142 +598,6 @@ function drawEnds(u, ends, colors) {
 		ctx.fillText(item.name, markerX + 2 * radius, item.labelY);
 	}
 	ctx.restore();
-}
-
-function drawCompare(sources) {
-	destroyCompare();
-	const host = $('compare-chart');
-	const UPlot = window.uPlot;
-	if (!UPlot) {
-		return;
-	}
-	const merged = mergeSources(sources);
-	const styles = sources.map((s) => COMPARE_STYLES[s.src]);
-	const colorOf = styles.map((s) => cssVar(`--series-${s.slot}`));
-	const ends = sources.map((s, i) => ({
-		name: sourceInfo(s.src).name,
-		color: colorOf[i],
-		shape: styles[i].marker,
-	}));
-	const muted = cssVar('--muted');
-	const grid = cssVar('--grid');
-	const bg = cssVar('--bg');
-	const colors = {
-		bg,
-		text: cssVar('--text'),
-		hatch: cssVar('--border'),
-		font: cssVar('--font'),
-	};
-	const spans = gapSpans(merged.t, merged.columns[0]);
-	const axis = {
-		stroke: muted,
-		grid: { stroke: grid, width: 1 },
-		ticks: { stroke: grid, width: 1 },
-	};
-	app.compare = new UPlot(
-		{
-			width: Math.max(host.clientWidth, 200),
-			height: chartHeight(host),
-			// Room on the right for the names of the lines
-			padding: [8, 104, 0, 0],
-			tzDate: (ts) => UPlot.tzDate(new Date(ts * 1000), 'Etc/UTC'),
-			cursor: {
-				y: false,
-				drag: { x: false, y: false },
-				points: {
-					size: 9,
-					width: 2,
-					fill: bg,
-					stroke: (u, seriesIdx) => colorOf[seriesIdx - 1],
-				},
-			},
-			hooks: {
-				drawClear: [(u) => drawGaps(u, spans, colors)],
-				draw: [(u) => drawEnds(u, ends, colors)],
-			},
-			series: [
-				{ value: '{YYYY}-{MM}-{DD} {HH}:{mm} UTC' },
-				...sources.map((s, i) => ({
-					label: ends[i].name,
-					stroke: colorOf[i],
-					width: 2,
-					dash: styles[i].dash,
-					spanGaps: false,
-					points: { show: false },
-					value: (u, v) => (v == null ? '–' : formatPrice(v)),
-				})),
-			],
-			axes: [
-				{ ...axis },
-				{
-					...axis,
-					values: (u, ticks) => ticks.map(formatAxisPrice),
-					size: (u, labels) =>
-						labels
-							? Math.max(...labels.map((s) => s.length)) * 7 + 22
-							: 60,
-				},
-			],
-		},
-		[merged.t, ...merged.columns],
-		host
-	);
-}
-
-async function getSources(id) {
-	const key = `${id}.sources`;
-	if (!app.cache.has(key)) {
-		const json = await fetchJson(coinDataUrl(id, 'sources'));
-		if (!validSources(json)) {
-			throw new Error(`${key}: unexpected data`);
-		}
-		app.cache.set(key, json.sources);
-	}
-	return app.cache.get(key);
-}
-
-function renderCompareNote(sources) {
-	const box = $('compare-note');
-	box.replaceChildren(
-		`Sources: ${sources.map((s) => sourceInfo(s.src).name).join(', ')}. Times in UTC.`
-	);
-	const credit = sources
-		.map((s) => sourceInfo(s.src).credit)
-		.find((item) => item);
-	if (credit) {
-		box.append(
-			` ${credit.text} `,
-			link(credit.licenceUrl, credit.licence),
-			'.'
-		);
-	}
-}
-
-// The comparison needs a sources file with at least two sources. When it is missing, the section stays hidden.
-async function loadCompare() {
-	const token = ++app.compareToken;
-	const { coin } = app;
-	try {
-		const sources = await getSources(coin);
-		if (token !== app.compareToken) {
-			return;
-		}
-		if (sources.length < 2) {
-			hideCompare();
-			return;
-		}
-		$('compare').hidden = false;
-		$('compare-chart').setAttribute(
-			'aria-label',
-			summarizeSources(coin, sources)
-		);
-		renderCompareNote(sources);
-		drawCompare(sources);
-	} catch {
-		if (token === app.compareToken) {
-			hideCompare();
-		}
-	}
 }
 
 // ----- coin comparison in percent (many coins on one chart)
@@ -1048,16 +616,16 @@ function hideMulti() {
 	$('multi').hidden = true;
 }
 
+// The rows on the chart. The accent coin is the last one, so its line is drawn on top of the others.
 function shownRows() {
-	return app.multi.rows.filter((row) => app.multi.selected.has(row.id));
+	const rows = app.multi.rows.filter((row) => app.multi.selected.has(row.id));
+	return [
+		...rows.filter((row) => row.id !== ACCENT_COIN),
+		...rows.filter((row) => row.id === ACCENT_COIN),
+	];
 }
 
 // Highlights the line of one coin (or none), from the table or from the chart
-// The colour of a coin: the same in the lines, the names at their ends, the table and the overview
-function coinColour(id) {
-	return cssVar(`--coin-${coinSlot(coinIds(), id)}`);
-}
-
 function focusLine(id) {
 	const chart = app.multi.chart;
 	if (!chart) {
@@ -1163,6 +731,7 @@ function drawMultiEnds(u, rows, colors, compact) {
 		name: compact ? row.id : `${row.id} ${formatChange(row.end).text}`,
 		color: coinColour(row.id),
 		shape: 'circle',
+		bold: row.id === ACCENT_COIN,
 	}));
 	drawEnds(u, ends, colors);
 }
@@ -1185,7 +754,7 @@ function drawMulti() {
 		note.textContent =
 			app.multi.rows.length === 0
 				? 'No data in this range.'
-				: 'No coins are selected. Tick coins in the table.';
+				: 'No coins are selected. Tick coins in the table below.';
 		return;
 	}
 	const UPlot = window.uPlot;
@@ -1193,10 +762,18 @@ function drawMulti() {
 		note.textContent = 'The chart library did not load.';
 		return;
 	}
-	const source = app.latest ? sourceInfo(app.latest.src).name : '';
-	note.textContent =
+	const info = app.latest ? sourceInfo(app.latest.src) : null;
+	note.replaceChildren(
 		`Change against the ${BASES[base].label.toLowerCase()}. ` +
-		`${source ? `Source: ${source}. ` : ''}Times in UTC.`;
+			`${info ? `Source: ${info.name}. ` : ''}Times in UTC.`
+	);
+	if (info?.credit) {
+		note.append(
+			` ${info.credit.text} `,
+			link(info.credit.licenceUrl, info.credit.licence),
+			'.'
+		);
+	}
 
 	const merged = mergeSources(rows.map((row) => ({ t: row.t, p: row.pct })));
 	const bg = cssVar('--bg');
@@ -1207,7 +784,6 @@ function drawMulti() {
 		text: cssVar('--text'),
 		hatch: cssVar('--border'),
 		font: cssVar('--font'),
-		accent: cssVar('--accent'),
 	};
 	const spans = gapSpans(merged.t, merged.columns[0]);
 	// A phone has no room for the percent beside every name: the table below has them
@@ -1234,6 +810,7 @@ function drawMulti() {
 				focus: { prox: 24 },
 			},
 			hooks: {
+				ready: [followTouch],
 				drawClear: [(u) => drawGaps(u, spans, colors)],
 				setSeries: [
 					(u, index, opts) => {
@@ -1257,14 +834,14 @@ function drawMulti() {
 				...rows.map((row) => ({
 					label: row.id,
 					stroke: coinColour(row.id),
-					width: 1.5,
+					width: row.id === ACCENT_COIN ? 3 : 1.5,
 					spanGaps: false,
 					points: { show: false },
 					value: (u, v) => (v == null ? '–' : formatChange(v).text),
 				})),
 			],
 			axes: [
-				{ ...axis },
+				{ ...axis, values: TIME_AXIS },
 				{
 					...axis,
 					values: (u, ticks) => ticks.map(formatPercentAxis),
@@ -1281,52 +858,6 @@ function drawMulti() {
 	updateReadout(app.multi.chart);
 }
 
-function renderMultiTable() {
-	const body = $('multi-table').querySelector('tbody');
-	body.replaceChildren();
-	const rows = [...app.multi.rows].sort(
-		(a, b) => b.end - a.end || a.id.localeCompare(b.id)
-	);
-	for (const row of rows) {
-		const box = el('input', {
-			type: 'checkbox',
-			'aria-label': `Show ${row.id} in the chart`,
-		});
-		box.checked = app.multi.selected.has(row.id);
-		box.addEventListener('change', () => {
-			if (box.checked && app.multi.selected.size >= MAX_COMPARE_LINES) {
-				box.checked = false;
-				$('multi-note').textContent =
-					`At most ${MAX_COMPARE_LINES} lines fit on the chart.`;
-				return;
-			}
-			if (box.checked) {
-				app.multi.selected.add(row.id);
-			} else {
-				app.multi.selected.delete(row.id);
-			}
-			drawMulti();
-		});
-		const tr = el(
-			'tr',
-			{ class: `coin-${coinSlot(coinIds(), row.id)}` },
-			el('td', {}, el('label', { class: 'check' }, box)),
-			el(
-				'th',
-				{ scope: 'row' },
-				el('span', { class: 'swatch', 'aria-hidden': 'true' }),
-				row.id
-			),
-			el('td', { class: 'num' }, changeNode(row.end))
-		);
-		tr.addEventListener('mouseenter', () => focusLine(row.id));
-		tr.addEventListener('mouseleave', () => focusLine(null));
-		box.addEventListener('focus', () => focusLine(row.id));
-		box.addEventListener('blur', () => focusLine(null));
-		body.append(tr);
-	}
-}
-
 async function loadMulti() {
 	const token = ++app.multi.token;
 	const ids = coinIds();
@@ -1335,10 +866,6 @@ async function loadMulti() {
 		return;
 	}
 	$('multi').hidden = false;
-	if (app.multi.selected === null) {
-		// The first coins get ten different colours. "Show all" adds the rest, and the colours repeat.
-		app.multi.selected = new Set(ids.slice(0, COIN_COLOURS));
-	}
 	const { range, base } = app.multi;
 	$('multi-note').textContent = 'Loading the comparison…';
 	const loaded = await Promise.allSettled(
@@ -1367,7 +894,6 @@ async function loadMulti() {
 		});
 	});
 	app.multi.rows = rows;
-	renderMultiTable();
 	drawMulti();
 }
 
@@ -1406,18 +932,89 @@ function renderMultiButtons() {
 	}
 	setPressed(baseBox, app.multi.base);
 
-	$('multi-all').addEventListener('click', () => {
-		app.multi.selected = new Set(
-			app.multi.rows.slice(0, MAX_COMPARE_LINES).map((row) => row.id)
+	for (const button of document.querySelectorAll('.multi-all')) {
+		button.addEventListener('click', () => setAllShown(true));
+	}
+	for (const button of document.querySelectorAll('.multi-none')) {
+		button.addEventListener('click', () => setAllShown(false));
+	}
+	$('multi-picker-toggle').addEventListener('click', () => {
+		app.multi.pickerOpen = !app.multi.pickerOpen;
+		renderPickerState();
+	});
+}
+
+// ----- the choice of coins: ticks in the table and, in the full page view, buttons in the chart panel
+
+// Brings every control in line with the choice: the ticks of the table, the buttons of the list and the count
+function syncChoice() {
+	const { selected } = app.multi;
+	for (const box of document.querySelectorAll('input.show-coin')) {
+		box.checked = selected.has(box.dataset.id);
+	}
+	for (const button of $('multi-coins').children) {
+		button.setAttribute(
+			'aria-pressed',
+			String(selected.has(button.dataset.key))
 		);
-		renderMultiTable();
-		drawMulti();
-	});
-	$('multi-none').addEventListener('click', () => {
-		app.multi.selected = new Set();
-		renderMultiTable();
-		drawMulti();
-	});
+	}
+	$('multi-picker-toggle').textContent =
+		`Coins: ${selected.size} of ${coinIds().length}`;
+}
+
+function setCoinShown(id, on) {
+	const { selected } = app.multi;
+	if (on && selected.size >= MAX_COMPARE_LINES) {
+		$('multi-note').textContent =
+			`At most ${MAX_COMPARE_LINES} lines fit on the chart.`;
+		syncChoice();
+		return;
+	}
+	if (on) {
+		selected.add(id);
+	} else {
+		selected.delete(id);
+	}
+	syncChoice();
+	drawMulti();
+}
+
+function setAllShown(on) {
+	app.multi.selected = new Set(
+		on ? coinIds().slice(0, MAX_COMPARE_LINES) : []
+	);
+	syncChoice();
+	drawMulti();
+}
+
+// One button for every coin. The list is built again only when the coins change.
+function renderPicker() {
+	const box = $('multi-coins');
+	const ids = coinIds();
+	if (box.dataset.ids !== ids.join(',')) {
+		box.replaceChildren();
+		for (const id of ids) {
+			const chip = el('button', {
+				type: 'button',
+				class: `chip coin-chip ${coinClass(id)}`,
+				'data-key': id,
+				text: id,
+			});
+			chip.addEventListener('click', () =>
+				setCoinShown(id, !app.multi.selected.has(id))
+			);
+			box.append(chip);
+		}
+		box.dataset.ids = ids.join(',');
+	}
+	syncChoice();
+	renderPickerState();
+}
+
+function renderPickerState() {
+	const open = app.multi.pickerOpen;
+	$('multi-coins').hidden = !open;
+	$('multi-picker-toggle').setAttribute('aria-expanded', String(open));
 }
 
 // The request is cached, not only its answer, so the overview and the comparison never fetch a file twice
@@ -1439,102 +1036,6 @@ function getSeries(id, file) {
 		});
 	}
 	return app.cache.get(key);
-}
-
-// The chart box shows a skeleton while loading and a dashed frame when there is nothing to draw
-function setChartState(state) {
-	const host = $('chart');
-	host.classList.remove('is-loading', 'is-empty', 'is-error');
-	if (state) {
-		host.classList.add(`is-${state}`);
-	}
-}
-
-function setChartCaption(visible, filled) {
-	const source = app.latest ? sourceInfo(app.latest.src).name : '';
-	const note = filledNote(filled);
-	$('chart-caption').textContent =
-		visible && source
-			? `Source: ${source}. Times in UTC.${note ? ` ${note}` : ''}`
-			: '';
-}
-
-async function loadChart() {
-	const token = ++app.drawToken;
-	const { coin, range } = app;
-	const status = $('chart-status');
-	status.textContent = 'Loading the chart…';
-	setChartState(app.chart ? null : 'loading');
-	try {
-		const full = await getSeries(coin, RANGES[range].file);
-		if (token !== app.drawToken) {
-			return;
-		}
-		const series = sliceRange(full, RANGES[range].seconds);
-		$('chart').setAttribute(
-			'aria-label',
-			summarizeSeries(coin, range, series)
-		);
-		if (series.t.length === 0) {
-			destroyChart();
-			setChartState('empty');
-			setChartCaption(false);
-			status.textContent = 'No data in this range.';
-			return;
-		}
-		status.textContent = '';
-		setChartState(null);
-		setChartCaption(true, series.filled);
-		drawChart(series);
-	} catch (err) {
-		if (token !== app.drawToken) {
-			return;
-		}
-		console.error(err);
-		destroyChart();
-		setChartState('error');
-		setChartCaption(false);
-		$('chart').setAttribute(
-			'aria-label',
-			`Price chart of ${coin}: not available.`
-		);
-		status.textContent = 'The chart data could not be loaded.';
-	}
-}
-
-function renderRanges() {
-	const box = $('ranges');
-	for (const [key, range] of Object.entries(RANGES)) {
-		const button = el('button', {
-			type: 'button',
-			class: 'chip',
-			'data-key': key,
-			text: range.label,
-		});
-		button.addEventListener('click', () => {
-			app.range = key;
-			setPressed(box, key);
-			syncHash();
-			loadChart();
-		});
-		box.append(button);
-	}
-	setPressed(box, app.range);
-}
-
-// The link shows the coin and the range, so it opens the same chart
-function syncHash() {
-	history.replaceState(null, '', hashFor(app.coin, app.range));
-}
-
-function selectCoin(id) {
-	app.coin = id;
-	syncHash();
-	renderChips();
-	markCurrent();
-	renderDetail();
-	loadChart();
-	loadCompare();
 }
 
 // ----- loading
@@ -1571,53 +1072,39 @@ async function loadAll() {
 			? 'The newest data could not be loaded. The numbers below may be old.'
 			: ''
 	);
-	renderSource();
 	const ids = coinIds();
-	const wanted = parseHash(location.hash).coin;
-	const first = ids.includes(app.coin) ? app.coin : wanted;
-	app.coin = ids.includes(first) ? first : (ids[0] ?? null);
-	if (app.coin === null) {
+	if (ids.length === 0) {
 		showProblem('The data has no coins.');
 		return;
 	}
-	renderChips();
+	if (app.multi.selected === null) {
+		// The first coins are on the chart at the start. "Show all" adds the rest, and the colours repeat.
+		app.multi.selected = new Set(ids.slice(0, COIN_COLOURS));
+	}
+	renderPicker();
 	renderTable();
-	renderDetail();
-	loadChart();
-	loadCompare();
 	loadMulti();
 }
 
-// Sizes every chart to its box. It runs when a box changes its size, and when a panel enters or leaves the
+// Sizes the chart to its box. It runs when the box changes its size, and when the panel enters or leaves the
 // full page view (the box can keep its size then).
-function fitCharts() {
-	const items = [
-		[app.chart, $('chart')],
-		[app.compare, $('compare-chart')],
-		[app.multi.chart, $('multi-chart')],
-	];
-	for (const [chart, host] of items) {
-		if (!chart || host.clientWidth === 0) {
-			continue;
-		}
-		// The names at the line ends are short on a narrow screen, so a change of the width class redraws
-		if (
-			chart === app.multi.chart &&
-			app.multi.compact !== host.clientWidth < 480
-		) {
-			drawMulti();
-			continue;
-		}
-		chart.setSize({ width: host.clientWidth, height: chartHeight(host) });
+function fitChart() {
+	const chart = app.multi.chart;
+	const host = $('multi-chart');
+	if (!chart || host.clientWidth === 0) {
+		return;
 	}
+	// The names at the line ends are short on a narrow screen, so a change of the width class redraws
+	if (app.multi.compact !== host.clientWidth < 480) {
+		drawMulti();
+		return;
+	}
+	chart.setSize({ width: host.clientWidth, height: chartHeight(host) });
 }
 
 // ----- a chart on the whole page
 
 const PANELS = {
-	'chart-panel': () =>
-		`${app.latest?.coins[app.coin]?.name ?? ''} (${app.coin}), ${RANGES[app.range].title}`,
-	'compare-panel': () => `${app.coin}: source comparison, last 7 days`,
 	'multi-panel': () =>
 		`Coin comparison, ${RANGES[app.multi.range].title}, percent change`,
 };
@@ -1642,7 +1129,12 @@ function showPanel(node) {
 		' Close'
 	);
 	document.body.classList.add('has-panel-open');
-	fitCharts();
+	if (node.id === 'multi-panel') {
+		// A phone held sideways has no room for the list of coins: it starts closed there
+		app.multi.pickerOpen = window.innerHeight > 500;
+		renderPickerState();
+	}
+	fitChart();
 	button.focus();
 }
 
@@ -1664,11 +1156,11 @@ function closePanel() {
 		' Expand'
 	);
 	document.body.classList.remove('has-panel-open');
-	fitCharts();
+	fitChart();
 	button.focus();
 }
 
-// A panel whose chart is gone (for example a coin without a source comparison) cannot stay open
+// A panel whose chart is gone (the data has fewer than two coins) cannot stay open
 function closePanelOf(id) {
 	if (openPanel?.node.id === id) {
 		closePanel();
@@ -1717,17 +1209,13 @@ function initPanels() {
 }
 
 function start() {
-	app.range = parseHash(location.hash).range ?? app.range;
-	renderRanges();
 	renderMultiButtons();
 	loadAll();
 	setInterval(renderFreshness, TICK_MS);
 	setInterval(loadAll, REFRESH_MS);
 
 	const redraw = () => {
-		if (app.coin !== null) {
-			loadChart();
-			loadCompare();
+		if (app.multi.selected !== null) {
 			drawMulti();
 			paintSparks();
 		}
@@ -1735,21 +1223,7 @@ function start() {
 	window
 		.matchMedia('(prefers-color-scheme: dark)')
 		.addEventListener('change', redraw);
-	// An edited link or the back button opens the chart it names
-	window.addEventListener('hashchange', () => {
-		const { coin, range } = parseHash(location.hash);
-		if (range !== null && range !== app.range) {
-			app.range = range;
-			setPressed($('ranges'), range);
-			loadChart();
-		}
-		if (coin !== null && coin !== app.coin && coinIds().includes(coin)) {
-			selectCoin(coin);
-		}
-	});
-	for (const id of ['chart', 'compare-chart', 'multi-chart']) {
-		new ResizeObserver(fitCharts).observe($(id));
-	}
+	new ResizeObserver(fitChart).observe($('multi-chart'));
 	initPanels();
 }
 

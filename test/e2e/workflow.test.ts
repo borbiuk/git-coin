@@ -447,8 +447,8 @@ test('the dashboard builds its DOM from text only and loads nothing from outside
 			`no remote script or style: ${match[1]}`
 		);
 	}
-	// The disclaimer is in the page itself, before the first banner
-	assert.ok(
-		html.indexOf('Not financial advice') < html.indexOf('id="banners"')
-	);
+	// The one chart, the table with the choice of coins and the banners are in the page itself
+	for (const id of ['banners', 'multi-chart', 'latest', 'multi-coins']) {
+		assert.ok(html.includes(`id="${id}"`), id);
+	}
 });
