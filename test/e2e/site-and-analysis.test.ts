@@ -106,6 +106,7 @@ test('the site files in production mode have the contract shapes and use only th
 	assert.deepEqual(readdirSync(out).sort(), [
 		'alerts.json',
 		'coins',
+		'errors.json',
 		'latest.json',
 		'status.json',
 	]);

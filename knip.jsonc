@@ -13,6 +13,7 @@
 		"scripts/*.mjs",
 		// The dashboard (plain JavaScript, loaded by the browser)
 		"site/app.js",
+		"site/admin.js",
 		// Node test files
 		"test/**/*.test.ts",
 	],

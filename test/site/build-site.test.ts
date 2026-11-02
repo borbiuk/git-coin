@@ -82,6 +82,7 @@ test('buildSite writes the files of the contract for the sample tree', async () 
 	assert.deepEqual((await readdir(out)).sort(), [
 		'alerts.json',
 		'coins',
+		'errors.json',
 		'latest.json',
 		'status.json',
 	]);

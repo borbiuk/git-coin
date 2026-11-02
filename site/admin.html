@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<meta name="color-scheme" content="light dark" />
+		<meta name="robots" content="noindex" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'"
+		/>
+		<title>git-coin errors</title>
+		<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+		<link rel="stylesheet" href="style.css" />
+		<script type="module" src="admin.js"></script>
+	</head>
+	<body>
+		<header class="wrap">
+			<h1 class="brand">
+				<img src="logo.svg" alt="" width="32" height="32" />git-coin
+				errors
+			</h1>
+		</header>
+		<main id="main" class="wrap" tabindex="-1">
+			<p><a href="./">Back to the prices</a></p>
+			<noscript>
+				<p class="notice">This page needs JavaScript.</p>
+			</noscript>
+			<div id="problem" class="notice" role="status" hidden></div>
+			<p id="generated" class="muted">Loading the request log…</p>
+
+			<section aria-labelledby="day-title">
+				<h2 id="day-title">Last 24 hours</h2>
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="Requests and failures of each source in the last 24 hours"
+				>
+					<table id="stats-24h" class="stats"></table>
+				</div>
+			</section>
+
+			<section aria-labelledby="week-title">
+				<h2 id="week-title">Last 7 days</h2>
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="Requests and failures of each source in the last 7 days"
+				>
+					<table id="stats-7d" class="stats"></table>
+				</div>
+			</section>
+
+			<section aria-labelledby="recent-title">
+				<h2 id="recent-title">Latest failed requests</h2>
+				<p id="recent-empty" class="muted">
+					No failed requests in the last 7 days.
+				</p>
+				<div
+					class="table-wrap"
+					tabindex="0"
+					role="region"
+					aria-label="The latest failed requests"
+				>
+					<table id="recent" class="stats" hidden></table>
+				</div>
+			</section>
+
+			<section aria-labelledby="help-title">
+				<h2 id="help-title">What the codes mean</h2>
+				<dl id="help" class="help"></dl>
+			</section>
+		</main>
+	</body>
+</html>
