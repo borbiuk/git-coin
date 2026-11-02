@@ -23,6 +23,7 @@ import {
 	dropSpikes,
 } from './site/derive.ts';
 import type { Sample, Span } from './site/derive.ts';
+import { readErrorsFile } from './site/errors.ts';
 import { findFirstDay } from './site/first-day.ts';
 import { readAlertsFile, readStatusFile } from './site/state-files.ts';
 import { isoSeconds, parseIso } from './time.ts';
@@ -235,6 +236,10 @@ export async function buildSite(opts: {
 	await writeJson(
 		join(outDir, 'alerts.json'),
 		await readAlertsFile(dataRoot, generatedAt)
+	);
+	await writeJson(
+		join(outDir, 'errors.json'),
+		await readErrorsFile(dataRoot, now)
 	);
 }
 

@@ -269,6 +269,26 @@ export interface DerivedAlerts {
 		issue: number;
 	}>;
 }
+/** Request counts of one source in one period, from the request log (ADR 0004 D7). */
+export interface ErrorStats {
+	requests: number;
+	failures: number;
+	/** Every request by HTTP status. `0` means no response (timeout, DNS, reset). */
+	by_http: Record<string, number>;
+	/** Only the failed requests, by HTTP status. */
+	failures_by_http: Record<string, number>;
+	failures_by_error: Partial<Record<ErrorCode, number>>;
+	/** Median time of all requests of the period, in milliseconds. */
+	median_ms: number | null;
+	last_failure_at: string | null;
+}
+/** The admin page: failed requests of the stored sources, by source, status code and reason. */
+export interface DerivedErrors {
+	generated_at: string;
+	periods: Record<'24h' | '7d', Partial<Record<SrcCode, ErrorStats>>>;
+	/** The newest failed requests of the last 7 days, newest first. */
+	recent: RequestLogRow[];
+}
 /** Used by the 7 day and the 90 day files. */
 export interface SeriesPoints {
 	coin: string;

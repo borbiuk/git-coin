@@ -716,3 +716,22 @@ body.has-panel-open {
 		min-height: 220px;
 	}
 }
+
+.stats {
+	font-size: 0.875rem;
+}
+
+.stats td.err {
+	color: var(--stop-text);
+	font-weight: 600;
+}
+
+.help dt {
+	margin-top: 8px;
+	font-weight: 600;
+}
+
+.help dd {
+	margin: 0;
+	color: var(--muted);
+}
