@@ -169,6 +169,8 @@ The ten coins were selected because they had USD pairs on Kraken, Coinbase and B
 
 Update 2026-10-31: the owner changed the list to 27 coins (ADR 0007 D8). Not every coin has a USD pair on every source, so the ten-coin rule above no longer holds. On 2026-10-31: 19 coins are on all four sources, TRX is not on Coinbase, KSM, EGLD, MINA and CAKE are not on Bitstamp, RUNE and SC are only on Kraken and Coin Metrics, and ZIL is only on Coin Metrics (Bitfinex delisted it in 2024). Coin Metrics lists all of them. TRX, ATOM and ETC do have a Bitstamp market, but it trades too rarely (a few candles a day, ATOM none since 2026-09-04), so the config leaves it out and Kraken gives their candles (ADR 0007 D8).
 
+Update 2026-11-16: the owner added AAVE, HYPE, MORPHO, TAO and ONDO, so the list has 32 enabled coins. On 2026-11-16 all five have a USD market on Kraken, Coinbase and Bitstamp and a 1-minute reference rate on Coin Metrics. Coin Metrics names TAO `tao_bittensor`.
+
 ### Backfill sources (for the manual gap fill in ADR 0005)
 
 - Kraken `OHLC`: "Returns up to 720 of the most recent entries. Older data cannot be retrieved, regardless of `since`." With 15-minute candles that is 7.5 days. [A]

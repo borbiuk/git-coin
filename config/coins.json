@@ -587,6 +587,111 @@
 			}
 		},
 		{
+			"id": "AAVE",
+			"name": "Aave",
+			"enabled": true,
+			"added": "2026-11-16",
+			"sources": {
+				"kraken_pair": "AAVEUSD",
+				"coinbase_product": "AAVE-USD",
+				"bitstamp_market": "aaveusd",
+				"coinmetrics_asset": "aave",
+				"coingecko_id": "aave"
+			},
+			"profile": {
+				"launched": 2020,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "ethereum",
+				"max_supply": 16000000
+			},
+			"note": "The AAVE token replaced LEND in 2020 at 100 LEND for 1 AAVE, so LEND is not a previous id."
+		},
+		{
+			"id": "HYPE",
+			"name": "Hyperliquid",
+			"enabled": true,
+			"added": "2026-11-16",
+			"sources": {
+				"kraken_pair": "HYPEUSD",
+				"coinbase_product": "HYPE-USD",
+				"bitstamp_market": "hypeusd",
+				"coinmetrics_asset": "hype",
+				"coingecko_id": "hyperliquid"
+			},
+			"profile": {
+				"launched": 2024,
+				"asset_type": "native",
+				"category": "defi",
+				"consensus": "pos",
+				"smart_contracts": true,
+				"max_supply": 1000000000
+			}
+		},
+		{
+			"id": "MORPHO",
+			"name": "Morpho",
+			"enabled": true,
+			"added": "2026-11-16",
+			"sources": {
+				"kraken_pair": "MORPHOUSD",
+				"coinbase_product": "MORPHO-USD",
+				"bitstamp_market": "morphousd",
+				"coinmetrics_asset": "morpho",
+				"coingecko_id": "morpho"
+			},
+			"profile": {
+				"launched": 2024,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "ethereum",
+				"max_supply": 1000000000
+			},
+			"note": "launched is the year of the transferable (wrapped) MORPHO token. The legacy token from 2022 is a different CoinGecko id."
+		},
+		{
+			"id": "TAO",
+			"name": "Bittensor",
+			"enabled": true,
+			"added": "2026-11-16",
+			"sources": {
+				"kraken_pair": "TAOUSD",
+				"coinbase_product": "TAO-USD",
+				"bitstamp_market": "taousd",
+				"coinmetrics_asset": "tao_bittensor",
+				"coingecko_id": "bittensor"
+			},
+			"profile": {
+				"launched": 2021,
+				"asset_type": "native",
+				"category": "layer1",
+				"consensus": "other",
+				"smart_contracts": true,
+				"max_supply": 21000000
+			},
+			"note": "Coin Metrics calls the asset tao_bittensor. consensus is other: blocks are made by the foundation validators, stake drives Yuma consensus."
+		},
+		{
+			"id": "ONDO",
+			"name": "Ondo",
+			"enabled": true,
+			"added": "2026-11-16",
+			"sources": {
+				"kraken_pair": "ONDOUSD",
+				"coinbase_product": "ONDO-USD",
+				"bitstamp_market": "ondousd",
+				"coinmetrics_asset": "ondo",
+				"coingecko_id": "ondo-finance"
+			},
+			"profile": {
+				"launched": 2022,
+				"asset_type": "token",
+				"category": "defi",
+				"platform": "ethereum",
+				"max_supply": 10000000000
+			}
+		},
+		{
 			"id": "DOGE",
 			"name": "Dogecoin",
 			"enabled": false,

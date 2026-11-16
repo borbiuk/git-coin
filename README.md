@@ -2,12 +2,12 @@
 
 # git-coin
 
-**Prices of 27 coins, collected on a schedule by GitHub Actions. The git history is the price history.**
+**Prices of 32 coins, collected on a schedule by GitHub Actions. The git history is the price history.**
 
 [![build](https://github.com/borbiuk/git-coin/actions/workflows/build.yml/badge.svg)](https://github.com/borbiuk/git-coin/actions/workflows/build.yml)
 [![license](https://img.shields.io/github/license/borbiuk/git-coin)](LICENSE)
 
-git-coin is a small project with no server. A scheduled GitHub Actions workflow fetches the USD prices of 27 coins from public APIs and appends them to CSV files on a separate `data` branch, one commit per run. A static dashboard on GitHub Pages shows the prices. A sharp price move opens a GitHub Issue.
+git-coin is a small project with no server. A scheduled GitHub Actions workflow fetches the USD prices of 32 coins from public APIs and appends them to CSV files on a separate `data` branch, one commit per run. A static dashboard on GitHub Pages shows the prices. A sharp price move opens a GitHub Issue.
 
 > **Test period.** The first 14 days compare four price sources, and all of them are stored. The data of this period is **test data, provided as is**. It can be late, missing or wrong, and it is not financial advice. After the test one source is chosen and the dashboard and the alerts go live. Until then the dashboard is not published.
 

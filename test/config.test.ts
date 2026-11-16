@@ -229,7 +229,7 @@ describe('config', () => {
 			publish: true,
 		});
 		const ids =
-			'BTC ETH BNB XRP SOL TRX RUNE DOT ATOM AVAX ETC KSM SC ICP EGLD CHZ MINA ZIL NEAR LINK CAKE UNI XLM SUI CRV ADA XTZ'.split(
+			'BTC ETH BNB XRP SOL TRX RUNE DOT ATOM AVAX ETC KSM SC ICP EGLD CHZ MINA ZIL NEAR LINK CAKE UNI XLM SUI CRV ADA XTZ AAVE HYPE MORPHO TAO ONDO'.split(
 				' '
 			);
 		assert.deepEqual(
@@ -243,8 +243,8 @@ describe('config', () => {
 				false
 			);
 		}
-		assert.equal(enabledCoins(config, 'kraken').length, 27);
-		assert.equal(enabledCoins(config, 'coinmetrics').length, 28);
+		assert.equal(enabledCoins(config, 'kraken').length, 32);
+		assert.equal(enabledCoins(config, 'coinmetrics').length, 33);
 		// ZIL is only on Coin Metrics, so Coin Metrics is its primary source and it has no candles
 		const zil = config.coins.find((coin) => coin.id === 'ZIL');
 		assert.deepEqual(Object.keys(zil?.sources ?? {}), [
@@ -301,7 +301,7 @@ describe('config', () => {
 			config.coins
 				.filter((coin) => coin.profile?.asset_type === 'token')
 				.map((coin) => coin.id),
-			['LINK', 'CAKE', 'UNI', 'CRV']
+			['LINK', 'CAKE', 'UNI', 'CRV', 'AAVE', 'MORPHO', 'ONDO']
 		);
 	});
 
