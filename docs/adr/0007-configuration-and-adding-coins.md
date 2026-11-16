@@ -158,6 +158,7 @@ The owner's list has 27 coins and not every coin has a USD pair on every source 
 - Order for a new coin: merge the config; the first run starts the live series. Then run the backfill into a checkout of `data` and push `data` (steps in the README, "Backfill the history"). `tools/backfill.ts` picks the coins whose share of 15-minute intervals with a price is low, and the provider for each: Coinbase when the coin has a Coinbase product, else Kraken trades (`kraken_pair`), else OKX (`okx_market`, a market that is quoted in USDT; ZIL has no USD market on any exchange). The gap between the backfill and the live series is filled by the gap fill of the next run.
 - When code that reads a new `src` code is not on `main` yet, push the code first and the data after, because an unknown code is a skipped line for the old reader.
 - DOGE and LTC were set to `enabled: false` on 2026-10-31. Their history stays (D6).
+- AAVE, HYPE, MORPHO, TAO and ONDO were added on 2026-11-16. Their history was backfilled from the first candle each provider has, not from 2024-01-01: Coinbase candles (`--provider coinbase --from 2019-06-01T00:00:00Z`, which also extends LINK back to 2019), and Kraken trades for the months before the Coinbase listing (TAO from 2024-06-25, MORPHO from 2024-11-21, HYPE from 2026-01-28). Bitstamp has no older candles for them. The page shows prices in USDT, and the USDT rate history starts on 2024-01-01, so the page leaves out the LINK and AAVE closes before that day. They stay in `data`.
 
 ### D9. Coin profile (2026-10-31)
 

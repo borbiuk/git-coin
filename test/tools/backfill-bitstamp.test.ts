@@ -292,7 +292,7 @@ describe('main', () => {
 		assert.equal(code, 0);
 		assert.match(
 			out,
-			/^18 markets, up to 100 requests each, up to 1800 in all, one every 1000 ms/
+			/^23 markets, up to 100 requests each, up to 2300 in all, one every 1000 ms/
 		);
 		assert.match(out, /btcusd .*usdtusd/);
 		assert.ok(!out.includes('ksmusd'));
