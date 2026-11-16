@@ -388,3 +388,22 @@ export function periodStats(
 		low,
 	};
 }
+
+/** The whole 15-minute intervals from `fromSec` up to `untilSec`, and how many of them hold a sample. */
+export function coverageOf(
+	samples: Sample[],
+	fromSec: number,
+	untilSec: number
+): { intervals: number; with_price: number } {
+	const step = 900;
+	const first = Math.ceil(fromSec / step);
+	const end = Math.floor(untilSec / step);
+	const hit = new Set<number>();
+	for (const sample of samples) {
+		const slot = Math.floor(sample.t / step);
+		if (slot >= first && slot < end) {
+			hit.add(slot);
+		}
+	}
+	return { intervals: Math.max(0, end - first), with_price: hit.size };
+}

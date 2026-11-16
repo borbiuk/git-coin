@@ -655,7 +655,30 @@ export function primarySource(
 }
 
 /**
- * The candle source of a coin for its history and for the gap fill (ADR 0005 D8): Bitstamp when the coin has
+ * The candle source of the gap fill (ADR 0005 D8, revision of 2026-11-16): Coinbase when the coin has a product
+ * there (it has candles for almost every 15 minutes), else Bitstamp, else Kraken, else OKX (quoted in USDT).
+ * `null`: the coin has none of them, so it is not filled.
+ */
+export function fillSource(coin: CoinConfig): {
+	src: 'cb-ohlc' | 'bs-ohlc' | 'kr-ohlc' | 'ok-ohlc';
+	market: string;
+} | null {
+	const { coinbase_product, okx_market } = coin.sources;
+	if (coinbase_product !== undefined) {
+		return { src: 'cb-ohlc', market: coinbase_product };
+	}
+	const candles = candleSource(coin);
+	if (candles !== null) {
+		return candles;
+	}
+	if (okx_market !== undefined) {
+		return { src: 'ok-ohlc', market: okx_market };
+	}
+	return null;
+}
+
+/**
+ * The candle source of a coin for its daily history (ADR 0007 D8): Bitstamp when the coin has
  * a market there, else Kraken. `null`: the coin has neither, so its series starts with its first live row.
  */
 export function candleSource(

@@ -277,6 +277,27 @@ function makeMarket(config: Config, clock: Clock): Market {
 		return { status: 200, ms: 7, json: { data: { pair: name, ohlc } } };
 	}
 
+	/** Coinbase 15-minute candles from `start` to `end` (both included) that have started by now, newest first. */
+	function serveCoinbaseCandles(url: URL, nowMs: number): HttpResult {
+		const product = decodeURIComponent(url.pathname.split('/')[2] ?? '');
+		const coin = config.coins.find(
+			(item) => item.sources.coinbase_product === product
+		);
+		const start = Date.parse(url.searchParams.get('start') ?? '') / 1000;
+		const end = Date.parse(url.searchParams.get('end') ?? '') / 1000;
+		const rows: number[][] = [];
+		for (let startSec = start; startSec <= end; startSec += 900) {
+			if (coin === undefined || startSec * 1000 > nowMs) {
+				break;
+			}
+			const close = Number(
+				normalPrice('coinbase', coin.id, 1, Math.floor(startSec / 900))
+			);
+			rows.push([startSec, close, close, close, close, 1.5]);
+		}
+		return { status: 200, ms: 7, json: rows.reverse() };
+	}
+
 	function serve(url: URL, source: SourceId): HttpResult {
 		const failed = fault(source);
 		if (failed !== null) {
@@ -315,6 +336,9 @@ function makeMarket(config: Config, clock: Clock): Market {
 				};
 			}
 			case 'coinbase': {
+				if (url.pathname.endsWith('/candles')) {
+					return serveCoinbaseCandles(url, nowMs);
+				}
 				const product = decodeURIComponent(
 					url.pathname.split('/')[2] ?? ''
 				);

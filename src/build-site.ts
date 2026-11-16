@@ -11,6 +11,7 @@ import {
 	SEVEN_DAYS_SECONDS,
 	clipSpans,
 	convertSamples,
+	coverageOf,
 	dailyCandles,
 	emptyPoints,
 	hourlyPoints,
@@ -31,6 +32,7 @@ import { SRC_CODE } from './types.ts';
 import type {
 	CoinConfig,
 	Config,
+	DerivedCoverage,
 	DerivedLatest,
 	SeriesPoints,
 	SrcCode,
@@ -92,6 +94,11 @@ export async function buildSite(opts: {
 	const rateCoin = config.coins.find(
 		(coin) => coin.role === 'rate' && coin.enabled
 	);
+	const coverage: DerivedCoverage = {
+		generated_at: generatedAt,
+		window_days: 7,
+		coins: {},
+	};
 	const latest: DerivedLatest = {
 		generated_at: generatedAt,
 		quote: rateCoin?.id ?? 'USD',
@@ -148,6 +155,13 @@ export async function buildSite(opts: {
 			continue;
 		}
 		const { samples: loaded, filled } = await readJoined(coin);
+		if (coin.enabled) {
+			coverage.coins[coin.id] = coverageOf(
+				loaded,
+				nowSec - SEVEN_DAYS_SECONDS,
+				nowSec
+			);
+		}
 		const samples =
 			rateCoin === undefined ? loaded : convertSamples(loaded, rates);
 		// A disabled coin with no rows has nothing to show; a disabled coin with rows stays as an archive
@@ -241,6 +255,7 @@ export async function buildSite(opts: {
 		join(outDir, 'errors.json'),
 		await readErrorsFile(dataRoot, now)
 	);
+	await writeJson(join(outDir, 'coverage.json'), coverage);
 }
 
 async function main(argv: string[]): Promise<void> {

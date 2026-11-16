@@ -82,6 +82,7 @@ test('buildSite writes the files of the contract for the sample tree', async () 
 	assert.deepEqual((await readdir(out)).sort(), [
 		'alerts.json',
 		'coins',
+		'coverage.json',
 		'errors.json',
 		'latest.json',
 		'status.json',
@@ -101,6 +102,16 @@ test('buildSite writes the files of the contract for the sample tree', async () 
 		'ETH.daily.json',
 		'ETH.sources.json',
 	]);
+	// Only the enabled coins are counted, over the 672 intervals of 7 days
+	const coverage = await readOut<{
+		window_days: number;
+		coins: Record<string, { intervals: number; with_price: number }>;
+	}>('coverage.json');
+	assert.equal(coverage.window_days, 7);
+	assert.deepEqual(Object.keys(coverage.coins).sort(), ['BTC', 'ETH']);
+	assert.equal(coverage.coins.BTC?.intervals, 672);
+	assert.ok((coverage.coins.BTC?.with_price ?? 0) > 0);
+	assert.equal(coverage.coins.ETH?.with_price, 0);
 });
 
 test('latest.json uses the primary source, numbers and the period stats', async () => {
