@@ -30,7 +30,7 @@ test('a missed run is filled with candles before the rows of the run', async () 
 	assert.equal(result.rowsWritten, 44);
 
 	const rows = rowsOf(world.data, 'BTC');
-	const candles = rows.filter((row) => row.src === 'bs-ohlc');
+	const candles = rows.filter((row) => row.src === 'cb-ohlc');
 	assert.deepEqual(
 		candles.map((row) => row.ts.slice(11, 16)),
 		['10:15', '10:30', '10:45', '11:00', '11:15', '11:30']
@@ -42,7 +42,7 @@ test('a missed run is filled with candles before the rows of the run', async () 
 	assert.equal(rows.length, before + 4 + 6);
 	// The USDT rate entry is filled too
 	assert.equal(
-		rowsOf(world.data, 'USDT').filter((row) => row.src === 'bs-ohlc')
+		rowsOf(world.data, 'USDT').filter((row) => row.src === 'cb-ohlc')
 			.length,
 		6
 	);
@@ -60,31 +60,31 @@ test('a normal delay is not a gap and a second run does not write the candles ag
 	await runAt(world, T0, FILL);
 	await runAt(world, plusMinutes(T0, 17), FILL);
 	assert.equal(
-		rowsOf(world.data, 'BTC').filter((row) => row.src === 'bs-ohlc').length,
+		rowsOf(world.data, 'BTC').filter((row) => row.src === 'cb-ohlc').length,
 		0
 	);
 
 	await runAt(world, plusMinutes(T0, 95), FILL);
 	const once = rowsOf(world.data, 'BTC').filter(
-		(row) => row.src === 'bs-ohlc'
+		(row) => row.src === 'cb-ohlc'
 	).length;
 	await runAt(world, plusMinutes(T0, 96), FILL);
 	assert.equal(
-		rowsOf(world.data, 'BTC').filter((row) => row.src === 'bs-ohlc').length,
+		rowsOf(world.data, 'BTC').filter((row) => row.src === 'cb-ohlc').length,
 		once
 	);
 });
 
-test('a failing Bitstamp does not fail the run and the gap is filled by a later run', async () => {
+test('a failing Coinbase does not fail the run and the gap is filled by a later run', async () => {
 	const world = await makeWorld();
 	await runAt(world, T0, FILL);
 
-	world.market.down.set('bitstamp', 'http_429');
+	world.market.down.set('coinbase', 'http_429');
 	const failed = await runAt(world, plusMinutes(T0, 95), FILL);
 	assert.equal(failed.exitCode, 0);
 	assert.ok(world.logs.some((line) => line.startsWith('gap fill: HTTP 429')));
 	assert.equal(
-		rowsOf(world.data, 'BTC').filter((row) => row.src === 'bs-ohlc').length,
+		rowsOf(world.data, 'BTC').filter((row) => row.src === 'cb-ohlc').length,
 		0
 	);
 
@@ -96,10 +96,10 @@ test('a failing Bitstamp does not fail the run and the gap is filled by a later 
 		'2026-10-29T10:03:12Z'
 	);
 
-	world.market.down.delete('bitstamp');
+	world.market.down.delete('coinbase');
 	await runAt(world, plusMinutes(T0, 110), FILL);
 	assert.equal(
-		rowsOf(world.data, 'BTC').filter((row) => row.src === 'bs-ohlc').length,
+		rowsOf(world.data, 'BTC').filter((row) => row.src === 'cb-ohlc').length,
 		7
 	);
 	assert.deepEqual(
@@ -115,7 +115,7 @@ test('the gap fill is off when the deps say so', async () => {
 	await runAt(world, T0);
 	await runAt(world, plusMinutes(T0, 95));
 	assert.equal(
-		rowsOf(world.data, 'BTC').filter((row) => row.src === 'bs-ohlc').length,
+		rowsOf(world.data, 'BTC').filter((row) => row.src === 'cb-ohlc').length,
 		0
 	);
 });

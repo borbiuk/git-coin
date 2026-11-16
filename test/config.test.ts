@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
 	ConfigError,
 	candleSource,
+	fillSource,
 	enabledCoins,
 	hasSource,
 	loadConfig,
@@ -324,6 +325,33 @@ describe('config', () => {
 		// Bitstamp trades TRX too rarely, so TRX has no Bitstamp market and Kraken gives its candles
 		assert.equal(hasSource(coin('TRX'), 'bitstamp'), false);
 		assert.equal(candleSource(coin('TRX'))?.src, 'kr-ohlc');
+	});
+
+	test('the fill source is Coinbase first, then Bitstamp, Kraken and OKX', async () => {
+		const config = await loadConfig(fileURLToPath(REAL));
+		const coin = (id: string) =>
+			config.coins.find((item) => item.id === id) as CoinConfig;
+		assert.deepEqual(fillSource(coin('BTC')), {
+			src: 'cb-ohlc',
+			market: 'BTC-USD',
+		});
+		// TRX is not on Coinbase and not in the config for Bitstamp
+		assert.deepEqual(fillSource(coin('TRX')), {
+			src: 'kr-ohlc',
+			market: 'TRXUSD',
+		});
+		// ZIL has only Coin Metrics and an OKX market quoted in USDT
+		assert.deepEqual(fillSource(coin('ZIL')), {
+			src: 'ok-ohlc',
+			market: 'ZIL-USDT',
+		});
+		assert.equal(
+			fillSource({
+				...coin('ZIL'),
+				sources: { coinmetrics_asset: 'zil' },
+			}),
+			null
+		);
 	});
 
 	test('enabledCoins skips disabled coins and coins without an id for the source', async () => {

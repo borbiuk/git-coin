@@ -13,12 +13,7 @@ import {
 	syncNoDataIssue,
 } from './alerts/index.ts';
 import type { IssueClient } from './alerts/index.ts';
-import {
-	candleSource,
-	ConfigError,
-	enabledCoins,
-	loadConfig,
-} from './config.ts';
+import { ConfigError, enabledCoins, fillSource, loadConfig } from './config.ts';
 import {
 	appendMarketRows,
 	appendRequestLog,
@@ -68,7 +63,7 @@ const DEFAULT_DASHBOARD_URL = 'https://borbiuk.github.io/git-coin/';
 const REPOSITORY_PATTERN = /^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/;
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const MINUTE_MS = 60_000;
-/** Pause between two requests of the gap fill (11 markets, one request each). */
+/** Pause between two requests of the gap fill (one request per coin, more for a long gap). */
 const GAP_FILL_PAUSE_MS = 500;
 
 export interface CollectDeps {
@@ -496,7 +491,7 @@ async function noDataStep(
 }
 
 /**
- * The candle rows for the missing time of every coin that has a candle source (Bitstamp, else Kraken). The missing time starts
+ * The candle rows for the missing time of every coin that has a fill source (`fillSource`). The missing time starts
  * at an open gap of an earlier run, else at the newest stored row. Reads the data files and calls
  * the candle source, never writes. A failure gives fewer rows and an open gap, never an error. `null`: off.
  */
@@ -517,10 +512,11 @@ async function gapStep(
 			'kr-ohlc' as const,
 			'cb-ohlc' as const,
 			'kt-ohlc' as const,
+			'ok-ohlc' as const,
 		];
 		const targets: GapTarget[] = [];
 		for (const coin of deps.config.coins) {
-			const candles = candleSource(coin);
+			const candles = fillSource(coin);
 			if (!coin.enabled || candles === null) {
 				continue;
 			}

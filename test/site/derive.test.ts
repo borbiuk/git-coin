@@ -5,6 +5,7 @@ import {
 	RATE_MAX_GAP_SECONDS,
 	clipSpans,
 	convertSamples,
+	coverageOf,
 	dailyCandles,
 	hourlyPoints,
 	loadSamples,
@@ -459,4 +460,29 @@ test('dropSpikes leaves out an isolated spike and keeps a lasting move and a gap
 		[7.8, 7.79, 7.8, 9, 9.1, 12, 9.1]
 	);
 	assert.deepEqual(dropSpikes([]), []);
+});
+
+test('coverageOf counts the whole 15-minute intervals of the window that hold a sample', () => {
+	const from = epoch('2026-10-29T10:05:00Z');
+	const until = epoch('2026-10-29T11:10:00Z');
+	const at = (iso: string): Sample => ({ t: epoch(iso), p: 1, ts: iso });
+	// Whole intervals: 10:15, 10:30 and 10:45 (10:00 and 11:00 are cut by the window)
+	assert.deepEqual(
+		coverageOf(
+			[
+				at('2026-10-29T10:01:00Z'),
+				at('2026-10-29T10:16:00Z'),
+				at('2026-10-29T10:20:00Z'),
+				at('2026-10-29T11:00:00Z'),
+				at('2026-10-29T11:12:00Z'),
+			],
+			from,
+			until
+		),
+		{ intervals: 3, with_price: 1 }
+	);
+	assert.deepEqual(coverageOf([], until, from), {
+		intervals: 0,
+		with_price: 0,
+	});
 });

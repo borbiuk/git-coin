@@ -81,6 +81,8 @@ Sizes were measured on the minified single-file builds from jsDelivr with `gzip 
 data/status.json            last point time, last run, failures, last publish, per-coin status
 data/latest.json            latest price, 24h / 7d / 30d change, high and low per period, per coin; `quote` is the unit (D7)
 data/alerts.json            last 10 alerts (coin, time, direction, severity, Issue number); severity is `high` (the Issue label `warning`) or `extreme` (`critical`)
+data/errors.json            failed requests per source, last 24 hours and 7 days (admin page)
+data/coverage.json          share of the 15-minute intervals of the last 7 days with a price, per enabled coin (admin page, ADR 0005 D8)
 data/coins/<ID>.7d.json     last 7 days at full resolution
 data/coins/<ID>.sources.json  last 7 days at full resolution for each stored source (only while more than one source is stored)
 data/coins/<ID>.90d.json    last 90 days, hourly last-price points

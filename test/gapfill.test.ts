@@ -5,13 +5,18 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import {
+	COINBASE_LIMIT,
 	KRAKEN_LIMIT,
 	LIMIT,
+	MAX_REQUESTS,
 	MIN_GAP_SECONDS,
 	STEP_SECONDS,
 	candleRows,
+	candleUrl,
 	fetchGapRows,
+	parseCoinbaseCandles,
 	parseKrakenCandles,
+	parseOkxCandles,
 	planRequest,
 	readPending,
 	writePending,
@@ -314,4 +319,200 @@ test('fetchGapRows fills a Kraken market with kr-ohlc rows and stops at a rate l
 		[['KSM', '2026-10-30T11:30:00Z', '3.51', 'kr-ohlc']]
 	);
 	assert.deepEqual(Object.keys(result.pending), ['SC', 'MINA']);
+});
+
+/** A Coinbase answer: `[time, low, high, open, close, volume]`, newest first, prices as JSON numbers. */
+function coinbaseAnswer(rows: Array<[string, number, number]>): HttpResult {
+	return {
+		status: 200,
+		ms: 5,
+		json: rows
+			.map(([startIso, close, volume]) => [
+				Date.parse(startIso) / 1000,
+				1,
+				2,
+				1,
+				close,
+				volume,
+			])
+			.reverse(),
+	};
+}
+
+test('parseCoinbaseCandles reads numbers as plain text and rejects an exponent or a bad shape', () => {
+	assert.deepEqual(
+		parseCoinbaseCandles([
+			[1792800900, 1, 2, 1, 9.102, 12.5],
+			[1792800000, 1, 2, 1, 9.1, 0],
+		]),
+		[
+			{ start: 1792800000, close: '9.1', volume: '0' },
+			{ start: 1792800900, close: '9.102', volume: '12.5' },
+		]
+	);
+	assert.throws(() => parseCoinbaseCandles({ message: 'NotFound' }));
+	assert.throws(() => parseCoinbaseCandles([[1792800000, 1, 2, 1, 1e-7, 1]]));
+	assert.throws(() => parseCoinbaseCandles([[1792800000, 1, 2, 1, 0, 1]]));
+	assert.throws(() => parseCoinbaseCandles([['x', 1, 2, 1, 1, 1]]));
+});
+
+test('parseOkxCandles reads the close and the volume, and rejects an error code or a bad shape', () => {
+	assert.deepEqual(
+		parseOkxCandles({
+			code: '0',
+			data: [
+				[
+					'1792800900000',
+					'1',
+					'2',
+					'1',
+					'0.00512',
+					'300',
+					'1',
+					'1',
+					'1',
+				],
+				['1792800000000', '1', '2', '1', '0.0051', '0', '1', '1', '1'],
+			],
+		}),
+		[
+			{ start: 1792800000, close: '0.0051', volume: '0' },
+			{ start: 1792800900, close: '0.00512', volume: '300' },
+		]
+	);
+	assert.throws(() => parseOkxCandles({ code: '50011', data: [] }), /50011/);
+	assert.throws(() =>
+		parseOkxCandles({
+			code: '0',
+			data: [['1792800000000', '1', '2', '1', '-1', '1']],
+		})
+	);
+});
+
+test('planRequest with forward starts at the gap and takes the limit of one request', () => {
+	const from = NOW - 30 * 86_400;
+	const plan = planRequest(from, NOW, COINBASE_LIMIT, true);
+	assert.equal(
+		plan?.startSec,
+		Math.floor(from / STEP_SECONDS) * STEP_SECONDS
+	);
+	assert.equal(plan?.limit, COINBASE_LIMIT);
+	assert.equal(planRequest(NOW - 60, NOW, COINBASE_LIMIT, true), null);
+});
+
+test('candleUrl builds the request of each source', () => {
+	const start = Date.parse('2026-10-30T10:00:00Z') / 1000;
+	assert.equal(
+		candleUrl('cb-ohlc', 'BTC-USD', start, 3),
+		'https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900&start=2026-10-30T10:00:00.000Z&end=2026-10-30T10:30:00.000Z'
+	);
+	assert.equal(
+		candleUrl('ok-ohlc', 'ZIL-USDT', start, 3),
+		`https://www.okx.com/api/v5/market/history-candles?instId=ZIL-USDT&bar=15m&after=${(start + 3 * STEP_SECONDS) * 1000}&limit=100`
+	);
+	assert.equal(
+		candleUrl('bs-ohlc', 'btcusd', start, 3),
+		`https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=900&limit=3&start=${start}`
+	);
+	assert.equal(
+		candleUrl('kr-ohlc', 'XBTUSD', start, 3),
+		`https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=15&since=${start - 1}`
+	);
+});
+
+test('fetchGapRows fills a long gap forward, window after window, with cb-ohlc rows', async () => {
+	const urls: string[] = [];
+	const logs: string[] = [];
+	// 3.5 days: one window of 288 candles and a short second one
+	const from = NOW - 84 * 3600;
+	const firstStart = Math.floor(from / STEP_SECONDS) * STEP_SECONDS;
+	const iso = (sec: number) => new Date(sec * 1000).toISOString();
+	const result = await fetchGapRows(
+		[{ coin: 'DOT', market: 'DOT-USD', src: 'cb-ohlc', fromSec: from }],
+		options(
+			[
+				coinbaseAnswer([
+					[iso(firstStart), 1.25, 10],
+					// The last candle of the first window: it closes at the end of the window
+					[
+						iso(firstStart + (COINBASE_LIMIT - 1) * STEP_SECONDS),
+						1.5,
+						3,
+					],
+				]),
+				coinbaseAnswer([
+					// Repeated by the next window: it is taken once
+					[
+						iso(firstStart + (COINBASE_LIMIT - 1) * STEP_SECONDS),
+						1.5,
+						3,
+					],
+					[iso(firstStart + COINBASE_LIMIT * STEP_SECONDS), 1.75, 2],
+				]),
+			],
+			urls,
+			logs
+		)
+	);
+	assert.equal(urls.length, 2);
+	assert.ok(urls.every((url) => url.includes('/products/DOT-USD/candles?')));
+	assert.deepEqual(
+		result.rows.map((row) => [row.price, row.src]),
+		[
+			['1.25', 'cb-ohlc'],
+			['1.5', 'cb-ohlc'],
+			['1.75', 'cb-ohlc'],
+		]
+	);
+	assert.deepEqual(result.pending, {});
+});
+
+test('fetchGapRows stops after MAX_REQUESTS and keeps the rest open from where it stopped', async () => {
+	const urls: string[] = [];
+	const from = NOW - 150 * 86_400;
+	const result = await fetchGapRows(
+		[
+			{ coin: 'DOT', market: 'DOT-USD', src: 'cb-ohlc', fromSec: from },
+			{ coin: 'BTC', market: 'btcusd', src: 'bs-ohlc', fromSec: from },
+		],
+		options(
+			Array.from({ length: MAX_REQUESTS }, () => coinbaseAnswer([])),
+			urls,
+			[]
+		)
+	);
+	assert.equal(urls.length, MAX_REQUESTS);
+	const firstStart = Math.floor(from / STEP_SECONDS) * STEP_SECONDS;
+	const reached = firstStart + MAX_REQUESTS * COINBASE_LIMIT * STEP_SECONDS;
+	assert.deepEqual(result.pending, {
+		DOT: new Date(reached * 1000).toISOString().replace('.000Z', 'Z'),
+		BTC: new Date(from * 1000).toISOString().replace('.000Z', 'Z'),
+	});
+});
+
+test('fetchGapRows stops only the source that answered 429', async () => {
+	const urls: string[] = [];
+	const from = Date.parse('2026-10-30T11:00:00Z') / 1000;
+	const result = await fetchGapRows(
+		[
+			{ coin: 'DOT', market: 'DOT-USD', src: 'cb-ohlc', fromSec: from },
+			{ coin: 'ETC', market: 'ETC-USD', src: 'cb-ohlc', fromSec: from },
+			{ coin: 'BTC', market: 'btcusd', src: 'bs-ohlc', fromSec: from },
+		],
+		options(
+			[
+				{ status: 429, ms: 5, error: 'http_429' },
+				answer([candle('2026-10-30T11:15:00Z', '5')]),
+			],
+			urls,
+			[]
+		)
+	);
+	// ETC is not asked after the 429 of Coinbase, Bitstamp is
+	assert.equal(urls.length, 2);
+	assert.deepEqual(
+		result.rows.map((row) => [row.coin, row.src]),
+		[['BTC', 'bs-ohlc']]
+	);
+	assert.deepEqual(Object.keys(result.pending), ['DOT', 'ETC']);
 });

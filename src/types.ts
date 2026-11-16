@@ -289,6 +289,19 @@ export interface DerivedErrors {
 	/** The newest failed requests of the last 7 days, newest first. */
 	recent: RequestLogRow[];
 }
+/** The share of 15-minute intervals of one coin that have a price. */
+export interface CoverageStats {
+	/** Whole 15-minute intervals in the window. */
+	intervals: number;
+	/** Intervals with at least one price of any source. */
+	with_price: number;
+}
+/** The admin page: how many 15-minute intervals of the last 7 days have a price, per enabled coin. */
+export interface DerivedCoverage {
+	generated_at: string;
+	window_days: 7;
+	coins: Record<string, CoverageStats>;
+}
 /** Used by the 7 day and the 90 day files. */
 export interface SeriesPoints {
 	coin: string;
