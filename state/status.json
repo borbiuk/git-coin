@@ -1,93 +1,93 @@
 {
   "schema_version": 1,
   "phase": "test",
-  "last_run_at": "2026-11-17T00:11:19Z",
-  "last_point_at": "2026-11-17T00:11:19Z",
+  "last_run_at": "2026-11-17T08:06:04Z",
+  "last_point_at": "2026-11-17T08:06:04Z",
   "consecutive_failures": 0,
-  "last_publish_at": "2026-11-17T00:11:19Z",
+  "last_publish_at": "2026-11-17T08:06:04Z",
   "sources": {
     "bs": {
-      "requests": 88,
+      "requests": 89,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-11-17T00:11:16Z"
+      "last_ok_at": "2026-11-17T08:06:04Z"
     },
     "cb": {
-      "requests": 88,
+      "requests": 89,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-11-17T00:11:16Z"
+      "last_ok_at": "2026-11-17T08:06:03Z"
     },
     "cm": {
-      "requests": 88,
+      "requests": 89,
       "failures": 1,
       "failures_by_error": {
         "http_other": 1
       },
-      "consecutive_failures": 1,
-      "last_ok_at": "2026-11-16T16:02:51Z"
+      "consecutive_failures": 0,
+      "last_ok_at": "2026-11-17T08:06:04Z"
     },
     "kr": {
-      "requests": 88,
+      "requests": 89,
       "failures": 0,
       "failures_by_error": {},
       "consecutive_failures": 0,
-      "last_ok_at": "2026-11-17T00:11:16Z"
+      "last_ok_at": "2026-11-17T08:06:04Z"
     }
   },
   "coins": {
     "AAVE": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ADA": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ATOM": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "AVAX": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "BNB": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "BTC": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "CAKE": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "CHZ": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "CRV": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
@@ -99,49 +99,49 @@
       "last_reject_reason": null
     },
     "DOT": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "EGLD": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ETC": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ETH": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "HYPE": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ICP": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "KSM": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "LINK": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
@@ -153,98 +153,98 @@
       "last_reject_reason": null
     },
     "MINA": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "MORPHO": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "NEAR": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ONDO": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "RUNE": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "SC": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "SOL": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "SUI": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "TAO": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "TRX": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "UNI": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "USDT": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "XLM": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "XRP": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "XTZ": {
-      "last_point_at": "2026-11-17T00:11:19Z",
+      "last_point_at": "2026-11-17T08:06:04Z",
       "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     },
     "ZIL": {
-      "last_point_at": "2026-11-16T16:02:51Z",
-      "status": "source_missing",
+      "last_point_at": "2026-11-17T08:06:04Z",
+      "status": "ok",
       "rejected_count": 0,
       "last_reject_reason": null
     }
