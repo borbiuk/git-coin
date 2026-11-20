@@ -132,6 +132,11 @@ async function main(): Promise<number> {
 		const cells = [item.id];
 		for (const source of config.settings.stored_sources) {
 			const id = item.sources[SOURCE_FIELD[source]] ?? '';
+			if (id === '') {
+				// The coin has no id for this source on purpose, so there is nothing to check
+				cells.push('-');
+				continue;
+			}
 			const catalogue = catalogues.get(source);
 			if (typeof catalogue === 'string' || catalogue === undefined) {
 				cells.push(`${id} ERROR`);
