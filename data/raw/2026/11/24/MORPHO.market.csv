@@ -1,0 +1,4 @@
+ts,src,bid,ask,volume,market_cap,volume_usd,supply,tx_count,active_addresses,hash_rate,as_of
+2026-11-24T00:01:44Z,kr,1.598460000,1.600350000,363341.18719,,,,,,,
+2026-11-24T00:01:44Z,cb,1.5993,1.601,811946.22,,,,,,,
+2026-11-24T00:01:44Z,bs,1.6009,1.6018,32650.04,,,,,,,
